@@ -1,7 +1,10 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using TicketBooking.Domain.Catalogue;
 using TicketBooking.Domain.Reservation;
 using TicketBooking.Domain.Venue;
+using TicketBooking.Infrastructure.Identity;
 using BookingEntity = TicketBooking.Domain.Booking.Booking;
 using BookingItem = TicketBooking.Domain.Booking.BookingItem;
 using PaymentEntity = TicketBooking.Domain.Payment.Payment;
@@ -11,8 +14,10 @@ namespace TicketBooking.Infrastructure.Persistence;
 
 public sealed class TicketBookingDbContext(
     DbContextOptions<TicketBookingDbContext> options
-) : DbContext(options)
+) : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
 {
+    public DbSet<RefreshSession> RefreshSessions => Set<RefreshSession>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<VenueEntity> Venues => Set<VenueEntity>();
     public DbSet<Auditorium> Auditoriums => Set<Auditorium>();
     public DbSet<Seat> Seats => Set<Seat>();

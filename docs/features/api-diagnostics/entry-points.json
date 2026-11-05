@@ -8,7 +8,7 @@
       "app": "TicketBooking.Api",
       "kind": "service",
       "path": "src/TicketBooking.Api/Program.cs",
-      "symbol": "WebApplication.CreateBuilder(args)",
+      "symbol": "WebApplication.CreateBuilder(applicationArgs)",
       "description": "Top-level API startup with required configuration guards."
     },
     {
@@ -79,6 +79,6 @@
   ],
   "unresolved": [
     "Health, OpenAPI, TLS and full production host startup are not verified by the error HTTP tests.",
-    "Business endpoints, authentication, durable callback deduplication and transaction orchestration remain absent."
+    "Booking/payment endpoints, durable callback deduplication and transaction orchestration remain absent; authentication has its own feature bundle."
   ]
 }

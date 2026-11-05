@@ -1,9 +1,20 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using TicketBooking.Api.Auth;
 using TicketBooking.Api.Configuration;
 using TicketBooking.Api.Errors;
+using TicketBooking.Infrastructure.Identity;
 using TicketBooking.Infrastructure.Persistence;
 
-var builder = WebApplication.CreateBuilder(args);
+var initializeAdmin = args.Contains(DevelopmentAdminCommand.Switch, StringComparer.Ordinal);
+var applicationArgs = args.Where(argument => argument != DevelopmentAdminCommand.Switch).ToArray();
+var builder = WebApplication.CreateBuilder(applicationArgs);
+
+if (initializeAdmin)
+{
+    Environment.ExitCode = await DevelopmentAdminCommand.RunAsync(builder, Console.Out, Console.Error);
+    return;
+}
 
 builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 builder.Services.AddBookingTiming(builder.Configuration);
@@ -20,9 +31,8 @@ var connectionString =
 builder.Services.AddDbContext<TicketBookingDbContext>(options =>
     options.UseNpgsql(connectionString));
 builder.Services.AddScoped<SessionSeatAllocationWriter>();
-
-var signingKey = builder.Configuration["Jwt:SigningKey"]
-    ?? throw new InvalidOperationException("JWT signing key is missing.");
+builder.Services.AddTicketBookingIdentity().AddSignInManager();
+builder.Services.AddTicketBookingAuthentication(builder.Configuration);
 
 var app = builder.Build();
 
@@ -36,6 +46,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapAuthEndpoints();
 
 // Liveness only: database readiness checks can be added separately.
 app.MapHealthChecks("/health");

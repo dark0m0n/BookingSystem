@@ -4,6 +4,9 @@ Public constants: [ErrorCodes.cs](../../../src/TicketBooking.Contracts/Errors/Er
 
 | Code | HTTP | Trigger |
 | --- | --- | --- |
+| account_already_exists | 409 | Registration conflicts with an existing normalized email/username, including a concurrent insert. |
+| invalid_refresh_token | 401 | Unknown, expired, revoked, replayed or account-ineligible refresh credential. Replayed consumed credentials revoke their family before returning this generic error. |
+| invalid_credentials | 401 | Unknown/wrong login credentials, locked account or unsupported two-factor account. |
 | seat_not_available | 409 | Hold includes unavailable inventory, allocation writer loses its version/state match, or EF reports SessionSeat-only concurrency. |
 | hold_expired | 409 | Active hold reaches expiry or hold is already marked Expired. |
 | hold_not_active | 409 | Cancelled/converted hold cannot perform an active-only operation. |
@@ -18,7 +21,7 @@ Public constants: [ErrorCodes.cs](../../../src/TicketBooking.Contracts/Errors/Er
 | payment_reference_mismatch | 409 | Provider reference differs from the one already recorded. |
 | concurrency_conflict | 409 | Other EF optimistic concurrency failure. |
 | validation_failed | 400 | HTTP bad request / status-based validation failure. |
-| unauthorized / forbidden | 401 / 403 | Corresponding bodyless HTTP status; no authentication implementation implied. |
+| unauthorized / forbidden | 401 / 403 | Missing/invalid JWT credentials or insufficient roles on a protected route, or corresponding bodyless HTTP status. |
 | not_found / method_not_allowed | 404 / 405 | Missing route/resource or unsupported method. |
 | conflict | 409 | Unclassified bodyless 409. |
 | internal_error | 500 | Unexpected exception, unknown domain error, or bodyless 500. |
@@ -45,3 +48,7 @@ Hold ownership is checked before state/deadline, so another user's expired hold 
 Payment reference mismatch is checked before final outcome. Repeating Succeeded/Succeeded or Failed/Failed with the same reference is idempotent and emits no error. Conflicting final outcomes report payment_already_processed. This does not implement database-level request deduplication, provider callbacks or automatic refunds.
 
 Errors do not release seats, undo database writes or retry transactions. Future handlers own authorization, validation and atomic coordination. Unexpected messages are logged server-side, never copied to the public response. [HTTP tests](../../../tests/TicketBooking.IntegrationTests/ApiErrorContractTests.cs) exercise required codes and safe payloads; business endpoints remain unimplemented.
+
+Auth endpoints validate request fields, including canonical refreshToken shape, using validation_failed plus field errors. Registration/login use the same safe ProblemDetails metadata; see [HTTP contracts](../identity-persistence/http-contract.md). These errors use explicit endpoint codes rather than message-based exception classification.
+
+The reusable ownership service maps AuthenticationRequiredException to 401 unauthorized for a missing/unusable caller. Domain ResourceNotOwned remains 403 resource_not_owned for another owner or mismatched payment/booking link. Neither public detail includes owner IDs; see [resource ownership](../identity-persistence/resource-ownership.md). Existing business state/deadline codes are unchanged.

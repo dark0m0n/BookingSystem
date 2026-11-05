@@ -2,9 +2,9 @@
 
 Source: [configurations](../../../src/TicketBooking.Infrastructure/Persistence/Configurations), [snapshot](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/TicketBookingDbContextModelSnapshot.cs), and [schema migration](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261105143133_AddDomainForeignKeysAndUniqueConstraints.cs). Migration application/round trips were verified only in a disposable PostgreSQL 17 database; development/deployment state is Not verified.
 
-## Tables and foreign keys
+## Business tables and foreign keys
 
-All Id and reference columns are nonnull uuid unless noted. Every entity Id is caller-supplied; there is no database-generated identifier. Status/type enums are integer columns.
+All Id and reference columns are nonnull uuid unless noted. Every business entity Id is caller-supplied; there is no database-generated identifier. Status/type enums are integer columns.
 
 | Table | Key and references | Other mapped fields |
 | --- | --- | --- |
@@ -22,7 +22,7 @@ All Id and reference columns are nonnull uuid unless noted. Every entity Id is c
 
 All monetary pairs have required numeric(18,2) amount and varchar(3) currency columns. Domain Money validates supported currency, nonnegative amount, and scale; the database mapping does not add those domain checks as SQL CHECK constraints. Direct SQL fractional inputs can be coerced by numeric scale, so do not bypass server Money validation.
 
-All thirteen FKs use ON DELETE RESTRICT. Parent rows cannot be removed while referenced; application code must explicitly manage deletion/retention rather than relying on cascades.
+All thirteen business FKs use ON DELETE RESTRICT. Parent rows cannot be removed while referenced; application code must explicitly manage deletion/retention rather than relying on cascades.
 
 ## Uniqueness scopes
 
@@ -38,3 +38,15 @@ All thirteen FKs use ON DELETE RESTRICT. Parent rows cannot be removed while ref
 Booking Number, payment keys/references, and Row use C collation for exact case-sensitive comparison. Row labels are not normalized; A and a are different coordinates. Number/key/reference lengths are storage limits; request-level length validation is not implemented.
 
 Foreign keys prove reference existence only: they do not prove the session and seat share an auditorium, or that an item belongs to its parent's session. User existence, allocation ownership, one active hold per seat, state transitions, payment/booking amount agreement, and sum/currency consistency across rows require future application/schema work. Version is now an application-managed EF concurrency token with a nonnegative CHECK. Tracked updates and the explicit allocation writer advance it and compare the observed value; see [concurrency](../session-seat-concurrency/FEATURE.md). Arbitrary raw SQL/set-based operations are not protected automatically.
+
+## Identity tables
+
+The shared context now also stores seven framework Identity entities: users, roles, user roles, user claims, role claims, external logins and user tokens. Six required dependent FKs cascade; user/role IDs are GUIDs, and claim IDs are database-generated integers. Normalized username/role indexes are unique; EmailIndex is now unique after AddRegistrationProfileAndUniqueEmail; AspNetUsers also has required varchar(200) DisplayName. See [Identity data model](../identity-persistence/data-model.md) and [AddAspNetCoreIdentity](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261105162749_AddAspNetCoreIdentity.cs). Business UserId foreign keys remain absent. The [registration migration](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261105163800_AddRegistrationProfileAndUniqueEmail.cs) gives existing rows an empty display name and requires resolving any duplicate normalized emails before its unique index can be applied.
+
+## Refresh credentials
+
+The [refresh migration](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261105165909_AddRefreshTokenRotation.cs) adds RefreshSessions (GUID key, required cascading UserId, security-stamp hash, UTC CreatedAt/ExpiresAt/RevokedAt) and RefreshTokens (GUID key, cascading SessionId, unique TokenHash, UTC CreatedAt/ConsumedAt). A filtered unique SessionId index permits one unconsumed generation; consumed history remains for replay detection. No raw credential is stored. The context now has twenty entities and twenty-one FKs: thirteen business Restrict, eight Identity/refresh Cascade. See the [Identity data model](../identity-persistence/data-model.md) for exact columns, expiry precision and constraints.
+
+## Built-in role data
+
+SeedCustomerAndAdminRoles upserts Customer/CUSTOMER and Admin/ADMIN into AspNetRoles without changing tables or adding users/memberships. Existing normalized roles keep their IDs/UserRoles; names become canonical. Down retains role data to avoid deleting existing grants. Public registration alone adds Customer membership transactionally; existing roleless accounts are not backfilled.

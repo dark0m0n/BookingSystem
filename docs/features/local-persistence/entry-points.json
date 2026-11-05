@@ -66,10 +66,42 @@
       "path": "src/TicketBooking.Infrastructure/Persistence/Configurations/PaymentConfiguration.cs",
       "symbol": "public void Configure(",
       "description": "Maps booking-scoped idempotency and unique nonnull provider references."
+    },
+    {
+      "id": "identity-migration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261105162749_AddAspNetCoreIdentity.cs",
+      "symbol": "public partial class AddAspNetCoreIdentity",
+      "description": "Adds seven Identity account/role tables to the shared context."
+    },
+    {
+      "id": "registration-migration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261105163800_AddRegistrationProfileAndUniqueEmail.cs",
+      "symbol": "public partial class AddRegistrationProfileAndUniqueEmail",
+      "description": "Adds bounded profile display names and normalized email uniqueness."
+    },
+    {
+      "id": "refresh-migration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261105165909_AddRefreshTokenRotation.cs",
+      "symbol": "public partial class AddRefreshTokenRotation",
+      "description": "Creates refresh families and hashed generation history with uniqueness/cascading references."
+    },
+    {
+      "id": "role-seed-migration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261105211207_SeedCustomerAndAdminRoles.cs",
+      "symbol": "public partial class SeedCustomerAndAdminRoles",
+      "description": "Ensures Customer/Admin definitions without granting memberships; retains existing IDs."
     }
   ],
   "unresolved": [
-    "Identity UserId foreign keys await the Identity model.",
+    "Business UserId foreign keys/backfill and account-deletion compatibility remain deferred despite the new Identity model.",
     "Cross-row auditorium/session consistency, allocation ownership, transactional allocation workflows are not implemented; version-fenced row writes now exist.",
     "Development/deployed database migration state has not been verified; only an isolated test database was migrated."
   ]

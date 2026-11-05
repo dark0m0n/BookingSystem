@@ -1,3 +1,4 @@
+using TicketBooking.Domain.Identity;
 using TicketBooking.Domain.Reservation;
 
 namespace TicketBooking.Domain.Booking;
@@ -90,11 +91,7 @@ public sealed class Booking
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
         var now = timeProvider.GetUtcNow().ToUniversalTime();
-        DomainGuard.Id(userId, nameof(userId));
-        if (userId != UserId)
-        {
-            throw new DomainRuleException(DomainError.ResourceNotOwned, "Only the booking owner can cancel it.");
-        }
+        ResourceOwnership.EnsureOwner(userId, UserId);
 
         if (Status is not (BookingStatus.PendingPayment or BookingStatus.Confirmed))
         {

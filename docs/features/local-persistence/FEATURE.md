@@ -2,17 +2,17 @@
 
 Status: **partial**. Local PostgreSQL provisioning, EF mappings, migration, foreign keys, unique indexes, and database round trips are implemented. Customer/admin database workflows, durable allocation ownership, and transactional booking operations remain absent. [Row-level concurrency](../session-seat-concurrency/FEATURE.md) now fences SessionSeat changes.
 
-Working tree inspected on top of `5ba7f54`, including uncommitted domain/Money/timing work. Developers can use the existing Npgsql DbContext to persist eleven entity types. The database rejects duplicate seat coordinates, duplicate session inventory, orphan references, repeated booking numbers, and duplicate payment identities.
+Working tree inspected on top of `5ba7f54`, including uncommitted domain/Money/timing work. Developers can use the existing Npgsql DbContext to persist eleven business entity types plus seven framework Identity types and two [refresh entities](../identity-persistence/refresh-token-rotation.md). The database rejects duplicate seat coordinates, duplicate session inventory, orphan references, repeated booking numbers, and duplicate payment identities.
 
 ## Acceptance and verification
 
-- Eleven mapped entity types and thirteen required foreign keys use restrictive deletion.
+- Eleven business entity types and thirteen required foreign keys use restrictive deletion; seven Identity entities add six cascading dependent FKs, and two refresh entities add two more cascading FKs.
 - Unique inventory keys: Seats(AuditoriumId, Row, Number) and SessionSeats(SessionId, SeatId).
 - Composite item keys preserve history across holds/bookings; booking numbers and payment keys/references have defined uniqueness scopes.
 - Money columns use numeric(18,2) and required currency strings; UTC deadline snapshots persist as timestamp with time zone.
 - Metadata tests and real PostgreSQL 17 tests passed, including migration application, aggregate round trips, rejection paths, and allowed key reuse. Only the disposable test database was migrated; developer/deployed database state is Not verified.
 
-Follow [README local startup](../../../README.md#local-startup) to configure secrets, start PostgreSQL, apply migrations, and run the API. The original InitialCreate is empty; [AddDomainForeignKeysAndUniqueConstraints](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261105143133_AddDomainForeignKeysAndUniqueConstraints.cs) creates the business schema. The API itself still does not apply migrations at runtime.
+Follow [README local startup](../../../README.md#local-startup) to configure secrets, start PostgreSQL, apply migrations, and run the API. The original InitialCreate is empty; [AddDomainForeignKeysAndUniqueConstraints](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261105143133_AddDomainForeignKeysAndUniqueConstraints.cs) creates the business schema. [AddAspNetCoreIdentity](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261105162749_AddAspNetCoreIdentity.cs) adds seven account/role tables without changing those business tables. The API itself still does not apply migrations at runtime.
 
 Run `dotnet test TicketBooking.slnx --configuration Release`. Database tests require `TICKETBOOKING_TEST_CONNECTION_STRING` targeting an isolated PostgreSQL database, and otherwise skip; metadata/configuration tests still run. CI provisions a dedicated PostgreSQL service and sets the variable. Database tests apply migrations before each test, then roll back test rows.
 
@@ -29,3 +29,9 @@ Run `dotnet test TicketBooking.slnx --configuration Release`. Database tests req
 ## Related decision
 
 See the [seat ownership, price history and transition decision record](../../decisions/0001-seat-ownership-price-history-and-transitions.md) for rationale, enforcement boundaries and remaining transaction work.
+
+The [registration/profile migration](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261105163800_AddRegistrationProfileAndUniqueEmail.cs) now adds DisplayName and a unique normalized-email index. See [account HTTP contracts](../identity-persistence/http-contract.md); public registration handles concurrent account conflicts without exposing database details.
+
+[AddRefreshTokenRotation](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261105165909_AddRefreshTokenRotation.cs) creates refresh families and hash-only generation history. Rotation/replay revocation use an explicit PostgreSQL family-row lock and transaction; see the [rotation contract](../identity-persistence/refresh-token-rotation.md). The full 325-test suite passed against disposable PostgreSQL, including rollback and concurrency cases.
+
+The data-only [SeedCustomerAndAdminRoles](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261105211207_SeedCustomerAndAdminRoles.cs) migration ensures canonical role definitions and retains existing IDs/memberships. It creates no admin account. Registration now wraps account creation and Customer membership in one transaction; see [roles and policies](../identity-persistence/roles-and-policies.md).

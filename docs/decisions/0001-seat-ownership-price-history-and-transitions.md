@@ -14,7 +14,7 @@ Use database constraints for relational identity and uniqueness, domain methods 
 | --- | --- |
 | Coordinates are unique within an auditorium. | Unique `(AuditoriumId, Row, Number)`; coordinates can repeat elsewhere. Row comparison is exact and case-sensitive, without normalization. |
 | Inventory belongs to a session/physical-seat pair. | Unique `(SessionId, SeatId)`; physical seats can appear in multiple sessions. |
-| Holds/bookings identify a customer through UserId. | Domain owner checks guard hold conversion/cancellation and booking cancellation. Authentication and an Identity user FK are absent. |
+| Holds/bookings identify a customer through UserId. | Domain owner checks guard hold conversion/cancellation and booking cancellation. JWT authentication now exists; an Identity user FK and authenticated booking workflow are absent. |
 | Items preserve reusable inventory history. | Composite keys `(SeatHoldId, SessionSeatId)` and `(BookingId, SessionSeatId)` prevent duplicates within a parent while allowing historical reuse. No global unique item-to-seat constraint exists. |
 | Every allocation change checks the observed version. | SessionSeat.Version is a nonnegative bigint EF concurrency token. The allocation writer matches ID, version and expected status, then increments Version. Tracked updates also check/advance it; deletes check it. |
 
@@ -67,3 +67,15 @@ After conversion, the booking retains Held inventory until PaymentDeadline; orig
 Schema evidence: [domain migration](../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261105143133_AddDomainForeignKeysAndUniqueConstraints.cs) and [concurrency migration](../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261105144851_AddSessionSeatOptimisticConcurrency.cs). Applied development/deployment state is not verified. This documentation change applies no migrations and changes no runtime behavior.
 
 Future work must add durable allocation/source-hold/confirming-payment links, atomic workflows, provider verification/deduplication, expiry triggers and compensation before claiming complete ownership enforcement. Add domain tests alongside new rules and database/application tests for cross-aggregate guarantees.
+
+## Identity persistence follow-up
+
+[ASP.NET Core Identity storage](../features/identity-persistence/FEATURE.md) now provides GUID users/roles in the shared context. Domain remains independent of framework types. Registration/password login and JWT authentication now exist, and normalized-email uniqueness/profile storage have a follow-up migration. D-01 still requires business UserId foreign keys/backfill, durable allocation ownership and account-deletion coordination; authenticated booking workflows remain unfinished. Identity dependent FKs cascade; the restrictive deletion decision above applies to business references.
+
+## Refresh-rotation follow-up
+
+[Refresh families](../features/identity-persistence/refresh-token-rotation.md) now persist high-entropy token hashes and consumed generations. Each login captures an absolute UTC renewal deadline; family-row locking serializes rotation and replay revocation. This adds user-linked auth state without changing booking ownership/FKs. Public logout now uses the same family-row lock and revokes the family associated with any retained generation, idempotently preserving its first revocation time. Immediate access JWT revocation and history cleanup remain future work.
+
+## Role authorization follow-up
+
+[Customer/Admin roles and policies](../features/identity-persistence/roles-and-policies.md) now define customer-or-admin and admin-only access. Role definitions are upserted without admin users/grants, preserving existing memberships. Public registration commits its user and Customer membership together. Resource ownership remains independent of role authorization and requires the future booking/hold application workflows.

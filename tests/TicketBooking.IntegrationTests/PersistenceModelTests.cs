@@ -20,8 +20,10 @@ public class PersistenceModelTests
         using var context = CreateContext();
         var model = context.Model;
 
-        Assert.Equal(11, model.GetEntityTypes().Count());
-        var foreignKeys = model.GetEntityTypes().SelectMany(entity => entity.GetForeignKeys()).ToArray();
+        var domainEntities = model.GetEntityTypes()
+            .Where(entity => entity.ClrType.Assembly == typeof(SessionSeat).Assembly).ToArray();
+        Assert.Equal(11, domainEntities.Length);
+        var foreignKeys = domainEntities.SelectMany(entity => entity.GetForeignKeys()).ToArray();
         Assert.Equal(13, foreignKeys.Length);
         Assert.All(foreignKeys, key =>
         {

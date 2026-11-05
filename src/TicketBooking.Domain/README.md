@@ -14,7 +14,7 @@ The domain is organized into seven logical boundaries within the existing `Ticke
 
 ## Placement and dependencies
 
-Place C# types under their owning folder with namespace `TicketBooking.Domain.<Boundary>`. Venue and Catalogue contain the initial layout/catalogue entities; Reservation, Booking, and Payment contain lifecycle entities. Identity and Notification currently contain ownership guidance. Domain types do not imply implemented booking workflows.
+Place C# types under their owning folder with namespace `TicketBooking.Domain.<Boundary>`. Venue and Catalogue contain the initial layout/catalogue entities; Reservation, Booking, and Payment contain lifecycle entities. Identity contains RoleNames constants and ownership guidance; Notification contains ownership guidance; framework account storage lives in Infrastructure, documented in [Identity persistence](../../docs/features/identity-persistence/FEATURE.md). Domain types do not imply implemented booking workflows.
 
 The shared root-level `Money` primitive carries explicit currency and decimal(18,2) precision across price snapshots and derived totals; see [money and pricing](../../docs/features/money-and-pricing/FEATURE.md). It adds no boundary or service.
 

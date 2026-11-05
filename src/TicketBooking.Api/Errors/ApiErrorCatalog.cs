@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
+using TicketBooking.Application.Identity;
 using TicketBooking.Contracts.Errors;
 using TicketBooking.Domain;
 using TicketBooking.Domain.Catalogue;
@@ -13,6 +14,7 @@ public static class ApiErrorCatalog
 {
     public static ApiErrorDefinition ForException(Exception exception) => exception switch
     {
+        AuthenticationRequiredException => ForStatus(401),
         DomainRuleException rule => ForDomainError(rule.Error),
         SeatAllocationConflictException => ForDomainError(DomainError.SeatNotAvailable),
         DbUpdateConcurrencyException conflict when conflict.Entries.Count > 0 &&

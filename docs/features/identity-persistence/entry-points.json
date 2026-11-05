@@ -1,0 +1,221 @@
+{
+  "schema_version": 1,
+  "feature": "identity-persistence",
+  "status": "partial",
+  "entry_points": [
+    {
+      "id": "identity-startup",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Program.cs",
+      "symbol": "builder.Services.AddTicketBookingIdentity()",
+      "description": "Registers Identity in the API host using the existing DbContext."
+    },
+    {
+      "id": "identity-registration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Identity/IdentityServiceCollectionExtensions.cs",
+      "symbol": "public static IdentityBuilder AddTicketBookingIdentity",
+      "description": "Configures user/role services and EF stores."
+    },
+    {
+      "id": "identity-user",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Identity/ApplicationUser.cs",
+      "symbol": "public sealed class ApplicationUser",
+      "description": "GUID Identity account stored in Infrastructure."
+    },
+    {
+      "id": "identity-context",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/TicketBookingDbContext.cs",
+      "symbol": "IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>",
+      "description": "Combines framework Identity and existing business mappings."
+    },
+    {
+      "id": "identity-migration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261105162749_AddAspNetCoreIdentity.cs",
+      "symbol": "public partial class AddAspNetCoreIdentity",
+      "description": "Creates seven Identity tables and normalized lookup indexes."
+    },
+    {
+      "id": "auth-register",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Auth/AuthEndpoints.cs",
+      "symbol": "endpoints.MapPost(\"/api/auth/register\", RegisterAsync)",
+      "description": "Registers a validated email/password/display name account.",
+      "method": "POST",
+      "route": "/api/auth/register"
+    },
+    {
+      "id": "auth-login",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Auth/AuthEndpoints.cs",
+      "symbol": "endpoints.MapPost(\"/api/auth/login\", LoginAsync)",
+      "description": "Checks credentials and issues a signed JWT.",
+      "method": "POST",
+      "route": "/api/auth/login"
+    },
+    {
+      "id": "jwt-configuration",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Auth/AuthenticationConfiguration.cs",
+      "symbol": "public static IServiceCollection AddTicketBookingAuthentication",
+      "description": "Registers JWT bearer validation and authorization."
+    },
+    {
+      "id": "jwt-issuer",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Auth/JwtTokenIssuer.cs",
+      "symbol": "public sealed class JwtTokenIssuer",
+      "description": "Issues JWTs using server time and stored role claims."
+    },
+    {
+      "id": "account-mapping",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Configurations/ApplicationUserConfiguration.cs",
+      "symbol": "public sealed class ApplicationUserConfiguration",
+      "description": "Maps bounded display name and unique normalized email."
+    },
+    {
+      "id": "registration-migration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261105163800_AddRegistrationProfileAndUniqueEmail.cs",
+      "symbol": "public partial class AddRegistrationProfileAndUniqueEmail",
+      "description": "Adds profile storage and normalized email uniqueness."
+    },
+    {
+      "id": "auth-refresh",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Auth/AuthEndpoints.cs",
+      "symbol": "endpoints.MapPost(\"/api/auth/refresh\", RefreshAsync)",
+      "route": "/api/auth/refresh",
+      "method": "POST",
+      "description": "Rotates a persisted refresh token and returns a new token pair."
+    },
+    {
+      "id": "refresh-service",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Identity/RefreshTokenService.cs",
+      "symbol": "public sealed class RefreshTokenService",
+      "description": "Generates/hashes tokens and serializes family rotation/replay revocation."
+    },
+    {
+      "id": "refresh-session",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Identity/RefreshSession.cs",
+      "symbol": "public sealed class RefreshSession",
+      "description": "Stores absolute expiry, account binding and revocation for a login family."
+    },
+    {
+      "id": "refresh-token",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Identity/RefreshToken.cs",
+      "symbol": "public sealed class RefreshToken",
+      "description": "Stores hashed generations and consumption evidence."
+    },
+    {
+      "id": "refresh-migration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261105165909_AddRefreshTokenRotation.cs",
+      "symbol": "public partial class AddRefreshTokenRotation",
+      "description": "Creates refresh history/families and unique rotation constraints."
+    },
+    {
+      "id": "auth-logout",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Auth/AuthEndpoints.cs",
+      "symbol": "endpoints.MapPost(\"/api/auth/logout\", LogoutAsync)",
+      "route": "/api/auth/logout",
+      "method": "POST",
+      "description": "Idempotently revokes the submitted refresh credential's entire login family."
+    },
+    {
+      "id": "refresh-revocation",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Identity/RefreshTokenService.cs",
+      "symbol": "public async Task RevokeAsync",
+      "description": "Uses the shared family lock to revoke any retained generation without changing the first revocation time."
+    },
+    {
+      "id": "role-names",
+      "app": "TicketBooking.Domain",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Identity/RoleNames.cs",
+      "symbol": "public static class RoleNames",
+      "description": "Defines stable Customer/Admin role names without framework dependencies."
+    },
+    {
+      "id": "role-policies",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Auth/AuthenticationConfiguration.cs",
+      "symbol": "options.AddPolicy(AuthorizationPolicies.Customer",
+      "description": "Registers authenticated Customer-or-Admin and Admin-only named policies."
+    },
+    {
+      "id": "role-seed-migration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261105211207_SeedCustomerAndAdminRoles.cs",
+      "symbol": "public partial class SeedCustomerAndAdminRoles",
+      "description": "Upserts canonical role definitions while preserving existing IDs/memberships."
+    },
+    {
+      "id": "development-admin-command",
+      "app": "TicketBooking.Api",
+      "kind": "command",
+      "path": "src/TicketBooking.Api/Auth/DevelopmentAdminCommand.cs",
+      "symbol": "public static async Task<int> RunAsync",
+      "description": "Explicit Development-only admin creation using external credentials, Identity managers and an atomic user/membership transaction; exits without HTTP."
+    },
+    {
+      "id": "current-user",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Auth/HttpCurrentUser.cs",
+      "symbol": "public sealed class HttpCurrentUser",
+      "description": "Extracts a single authenticated GUID sub as the current caller; ignores request ownership fields."
+    },
+    {
+      "id": "resource-ownership-service",
+      "app": "TicketBooking.Application",
+      "kind": "service",
+      "path": "src/TicketBooking.Application/Identity/ResourceOwnershipService.cs",
+      "symbol": "public sealed class ResourceOwnershipService",
+      "description": "Checks caller ownership of loaded holds/bookings and verifies payment booking links; no Admin bypass."
+    },
+    {
+      "id": "domain-resource-ownership",
+      "app": "TicketBooking.Domain",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Identity/ResourceOwnership.cs",
+      "symbol": "public static class ResourceOwnership",
+      "description": "Common nonempty owner-ID rule used by application checks and hold/booking transitions."
+    }
+  ],
+  "unresolved": [
+    "Session-list/all-device administration, immediate access-token revocation, key rotation, MFA completion, email confirmation and business authorization endpoints are absent.",
+    "No default admin account, public role-management endpoint or automatic roleless-user backfill is implemented.",
+    "Business UserId foreign keys/backfill, business account-deletion coordination, cleanup/retention after expiry and migration duplicate-account resolution remain deferred.",
+    "Refund-specific ownership traversal and business endpoint invocation remain deferred; no Refund entity exists."
+  ]
+}

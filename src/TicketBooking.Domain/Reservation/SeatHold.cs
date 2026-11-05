@@ -1,4 +1,5 @@
 using TicketBooking.Domain.Catalogue;
+using TicketBooking.Domain.Identity;
 
 namespace TicketBooking.Domain.Reservation;
 
@@ -70,7 +71,7 @@ public sealed class SeatHold
     // Booking creation uses one clock reading for both this check and CreatedAt.
     internal void EnsureCanConvertAt(Guid userId, DateTimeOffset now)
     {
-        EnsureOwner(userId);
+        ResourceOwnership.EnsureOwner(userId, UserId);
         EnsureActive();
 
         if (now >= ExpiresAt)
@@ -103,15 +104,6 @@ public sealed class SeatHold
         }
 
         Status = SeatHoldStatus.Expired;
-    }
-
-    private void EnsureOwner(Guid userId)
-    {
-        DomainGuard.Id(userId, nameof(userId));
-        if (userId != UserId)
-        {
-            throw new DomainRuleException(DomainError.ResourceNotOwned, "Only the hold owner can perform this operation.");
-        }
     }
 
     private void EnsureActive()

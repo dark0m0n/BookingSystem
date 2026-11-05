@@ -14,6 +14,7 @@ public class SessionSeatConcurrencyTests : IAsyncLifetime
     private readonly string schema = "seat_concurrency_" + Guid.NewGuid().ToString("N");
     private readonly string adminConnection = Environment.GetEnvironmentVariable("TICKETBOOKING_TEST_CONNECTION_STRING")!;
     private string testConnection = null!;
+    private NpgsqlDataSource dataSource = null!;
     private Guid seatId;
 
     public async Task InitializeAsync()
@@ -23,6 +24,7 @@ public class SessionSeatConcurrencyTests : IAsyncLifetime
         await using var command = new NpgsqlCommand($"CREATE SCHEMA \"{schema}\"", connection);
         await command.ExecuteNonQueryAsync();
         testConnection = new NpgsqlConnectionStringBuilder(adminConnection) { SearchPath = schema }.ConnectionString;
+        dataSource = NpgsqlDataSource.Create(testConnection);
         await using var context = CreateContext();
         await context.Database.MigrateAsync();
         var venue = new VenueEntity(Guid.NewGuid(), "Cinema", "Test address");
@@ -42,6 +44,11 @@ public class SessionSeatConcurrencyTests : IAsyncLifetime
         if (testConnection is null)
         {
             return;
+        }
+
+        if (dataSource is not null)
+        {
+            await dataSource.DisposeAsync();
         }
 
         await using var connection = new NpgsqlConnection(adminConnection);
@@ -251,7 +258,8 @@ public class SessionSeatConcurrencyTests : IAsyncLifetime
         await AssertStored(SessionSeatStatus.Available, 0);
     }
 
-    private TicketBookingDbContext CreateContext() => PersistenceModelTests.CreateContext(testConnection);
+    private TicketBookingDbContext CreateContext() => new(
+        new DbContextOptionsBuilder<TicketBookingDbContext>().UseNpgsql(dataSource).Options);
 
     private async Task AssertStored(SessionSeatStatus status, long version)
     {

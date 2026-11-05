@@ -3,6 +3,9 @@ namespace TicketBooking.Contracts.Errors;
 /// <summary>Stable wire values. Do not rename values or derive them from exception messages.</summary>
 public static class ErrorCodes
 {
+    public const string AccountAlreadyExists = "account_already_exists";
+    public const string InvalidCredentials = "invalid_credentials";
+    public const string InvalidRefreshToken = "invalid_refresh_token";
     public const string SeatNotAvailable = "seat_not_available";
     public const string HoldExpired = "hold_expired";
     public const string HoldNotActive = "hold_not_active";
