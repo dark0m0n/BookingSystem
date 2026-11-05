@@ -6,4 +6,10 @@
     <Project Path="src/TicketBooking.Domain/TicketBooking.Domain.csproj" />
     <Project Path="src/TicketBooking.Infrastructure/TicketBooking.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TicketBooking.Application.Tests/TicketBooking.Application.Tests.csproj" />
+    <Project Path="tests/TicketBooking.ArchitectureTests/TicketBooking.ArchitectureTests.csproj" />
+    <Project Path="tests/TicketBooking.Domain.Tests/TicketBooking.Domain.Tests.csproj" />
+    <Project Path="tests/TicketBooking.IntegrationTests/TicketBooking.IntegrationTests.csproj" />
+  </Folder>
 </Solution>

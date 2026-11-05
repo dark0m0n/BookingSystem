@@ -1,5 +1,43 @@
 # Ticket Booking
 
+## Local startup
+
+### One-time setup
+
+Install the .NET 10 SDK selected by `global.json` and Docker with the Compose plugin. From the repository root, copy `.env.example` to `.env` and set `POSTGRES_PASSWORD` (see [Local PostgreSQL](#local-postgresql)). Configure `ConnectionStrings:DefaultConnection` using the [API connection settings](#api-connection-settings), and set a local signing key:
+
+```bash
+dotnet user-secrets set 'Jwt:SigningKey' 'YOUR_LOCAL_SIGNING_KEY' --project src/TicketBooking.Api
+dotnet dev-certs https --trust
+```
+
+Replace the signing-key placeholder with your own local secret. The HTTPS command trusts the development certificate on supported platforms; Linux may require additional trust configuration for your browser or HTTP client.
+
+### Start locally
+
+After setup, run this single Bash command from the repository root:
+
+```bash
+dotnet tool restore --tool-manifest dotnet-tools.json && \
+  docker compose up -d --wait postgres && \
+  dotnet ef database update \
+    --project src/TicketBooking.Infrastructure \
+    --startup-project src/TicketBooking.Api \
+    --context TicketBookingDbContext \
+    -- --environment Development && \
+  dotnet run --project src/TicketBooking.Api --launch-profile https
+```
+
+This restores the pinned EF Core tool, waits for PostgreSQL readiness, applies migrations, and starts the API at `https://localhost:7281`. Each step runs only if the previous step succeeds. Package restore/build happens through the EF and API commands. Stop the API with Ctrl+C; PostgreSQL stays running until `docker compose down`.
+
+### How migrations are applied
+
+`dotnet ef database update` applies pending migrations from `src/TicketBooking.Infrastructure/Persistence/Migrations/` to the database configured by the API's `ConnectionStrings:DefaultConnection`. The API startup project supplies configuration and the DbContext registration; forwarding `--environment Development` enables development configuration and User Secrets. See the [EF Core CLI reference](https://learn.microsoft.com/en-us/ef/core/cli/dotnet) for these options.
+
+EF records applied migrations in `__EFMigrationsHistory`; rerunning the startup command leaves already-applied migrations in place. The current `InitialCreate` migration has empty `Up`/`Down` methods and creates no business tables. The command applies existing migrations; it does not generate new ones. Running `dotnet run` alone does **not** apply migrations.
+
+Compose reads `.env`, but the host API does not automatically read it. Ensure the API connection string matches the local database settings, including any changed port. Both the EF command and API startup require the connection string and `Jwt:SigningKey`. If migration application fails, resolve the reported connection, credential, or migration error before retrying; the API is not started by the chain on failure.
+
 ## Local PostgreSQL
 
 Install Docker with the Docker Compose plugin, then run from the repository root:
@@ -43,11 +81,7 @@ The API reads this connection string when registering its EF Core context. If th
 
 ## API documentation, health, and errors
 
-Start the API using the local Development profile after configuring its database connection string and `Jwt:SigningKey` in User Secrets:
-
-```bash
-dotnet run --project src/TicketBooking.Api --launch-profile https
-```
+Use the [local startup command](#start-locally) to start PostgreSQL, apply migrations, and run the API in Development.
 
 - `GET https://localhost:7281/openapi/v1.json` returns the OpenAPI document in Development. An interactive Swagger UI is not installed.
 - `GET https://localhost:7281/health` returns `200 OK` with `Healthy` when the API is running. This is a basic liveness check; it does not check PostgreSQL connectivity.

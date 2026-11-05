@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "feature": "local-persistence",
+  "status": "partial",
+  "entry_points": [
+    {
+      "id": "postgres-service",
+      "app": "postgres",
+      "kind": "service",
+      "path": "docker-compose.yml",
+      "symbol": "postgres:",
+      "description": "Compose service definition with local port binding, named volume, and readiness probe."
+    },
+    {
+      "id": "persistence-registration",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Program.cs",
+      "symbol": "builder.Services.AddDbContext<TicketBookingDbContext>",
+      "description": "Registers DbContext using the configured Npgsql connection string."
+    },
+    {
+      "id": "db-context",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/TicketBookingDbContext.cs",
+      "symbol": "OnModelCreating",
+      "description": "EF model-building override scans the context assembly for configurations."
+    },
+    {
+      "id": "initial-migration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261026113308_InitialCreate.cs",
+      "symbol": "InitialCreate",
+      "description": "Empty EF migration class; not a business schema or evidence of application."
+    }
+  ],
+  "unresolved": [
+    "No business entities, CRUD routes, or persistence workflows exist.",
+    "Running database state and applied migrations have not been verified."
+  ]
+}

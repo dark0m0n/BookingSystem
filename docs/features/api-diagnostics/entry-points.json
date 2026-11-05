@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "feature": "api-diagnostics",
+  "status": "implemented",
+  "entry_points": [
+    {
+      "id": "api-startup",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Program.cs",
+      "symbol": "WebApplication.CreateBuilder(args)",
+      "description": "Top-level API startup with required configuration guards."
+    },
+    {
+      "id": "api-health",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Program.cs",
+      "symbol": "app.MapHealthChecks(\"/health\")",
+      "route": "/health",
+      "description": "Inline liveness mapping; no method restriction or dependency health check registered."
+    },
+    {
+      "id": "api-openapi",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Program.cs",
+      "symbol": "app.MapOpenApi()",
+      "description": "Development-only default OpenAPI mapping; route is framework supplied, not explicitly configured here."
+    },
+    {
+      "id": "api-errors",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Program.cs",
+      "symbol": "builder.Services.AddProblemDetails",
+      "description": "Inline ProblemDetails customization combined with exception/status middleware."
+    }
+  ],
+  "unresolved": [
+    "OpenAPI default route and HTTP response behavior have not been verified at runtime.",
+    "No authentication or database readiness implementation exists."
+  ]
+}
