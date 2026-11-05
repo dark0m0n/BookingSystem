@@ -8,7 +8,7 @@ Contributors can represent a venue, auditorium, physical seat, event/movie, sess
 
 - Requested fields and the four SessionSeat statuses are implemented; see [data model](data-model.md).
 - Constructors reject invalid local values; targeted xUnit tests cover representative invalid inputs, status values, relationships, and time offsets.
-- ORM mappings, database constraints, concurrency enforcement, workflows, and endpoints are not implemented. Test execution results are reported separately.
+- ORM mappings and reference/identity constraints are now supplied by [persistence](../local-persistence/FEATURE.md); row-level concurrency is now implemented by the [concurrency feature](../session-seat-concurrency/FEATURE.md), while full workflows and endpoints remain unimplemented. Test execution results are reported separately.
 
 Run `dotnet test tests/TicketBooking.Domain.Tests/TicketBooking.Domain.Tests.csproj` after restoring dependencies. This exercises pure domain behavior without a database or API secrets.
 

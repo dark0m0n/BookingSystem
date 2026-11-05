@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "feature": "booking-timing",
+  "status": "partial",
+  "entry_points": [
+    {
+      "id": "timing-register",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Configuration/BookingTimingConfiguration.cs",
+      "symbol": "public static IServiceCollection AddBookingTiming(",
+      "description": "Binds, validates, and registers a startup timing-policy snapshot."
+    },
+    {
+      "id": "timing-options",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Configuration/BookingTimingOptions.cs",
+      "symbol": "public sealed class BookingTimingOptions",
+      "description": "Supplies default duration settings for configuration binding."
+    },
+    {
+      "id": "timing-policy",
+      "app": "TicketBooking.Domain",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/BookingTimingPolicy.cs",
+      "symbol": "public BookingTimingPolicy(",
+      "description": "Validates durations and calculates capped UTC deadlines."
+    },
+    {
+      "id": "hold-create",
+      "app": "TicketBooking.Domain.Reservation",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Reservation/SeatHold.cs",
+      "symbol": "public SeatHold(",
+      "description": "Captures a policy-derived expiry with server-resolved inventory prices."
+    },
+    {
+      "id": "booking-create",
+      "app": "TicketBooking.Domain.Booking",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Booking/Booking.cs",
+      "symbol": "public static Booking CreateFromHold(",
+      "description": "Captures session/payment/cancellation UTC snapshots."
+    },
+    {
+      "id": "booking-confirm",
+      "app": "TicketBooking.Domain.Booking",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Booking/Booking.cs",
+      "symbol": "public void Confirm(",
+      "description": "Confirms only before the captured payment deadline."
+    },
+    {
+      "id": "booking-cancel",
+      "app": "TicketBooking.Domain.Booking",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Booking/Booking.cs",
+      "symbol": "public void Cancel(",
+      "description": "Checks owner/state and the captured cancellation deadline."
+    },
+    {
+      "id": "booking-expire",
+      "app": "TicketBooking.Domain.Booking",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Booking/Booking.cs",
+      "symbol": "public void Expire(",
+      "description": "Expires a pending booking at or after its captured payment deadline."
+    },
+    {
+      "id": "payment-create",
+      "app": "TicketBooking.Domain.Payment",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Payment/Payment.cs",
+      "symbol": "public static Payment CreateForBooking(",
+      "description": "Derives the amount and checks the booking completion deadline using the clock."
+    }
+  ],
+  "unresolved": [
+    "No HTTP workflows, expiration workers, or late-payment compensation are implemented.",
+    "Session rescheduling and migration of existing deadlines need explicit future policy.",
+    "Decided post-conversion retention and late-result policy still needs allocation ownership/transfer, atomic expiry/release, and durable reconciliation/compensation; no executable entries exist for those workflows."
+  ]
+}

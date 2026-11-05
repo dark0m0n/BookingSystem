@@ -1,0 +1,12 @@
+# End-to-end flow
+
+1. API startup calls `timing-register`, binds the `BookingTiming` section to `timing-options`, constructs the validated immutable `timing-policy`, and registers one singleton (BR-01/02/03). Configuration is captured immediately, not on first use.
+2. Future trusted callers inject the policy and TimeProvider, and load the authoritative session start. No request/lookup handler exists yet.
+3. `hold-create` samples now once and calculates ExpiresAt = min(now + HoldDuration, session start) (BR-04). It snapshots inventory prices under the existing [money rules](../money-and-pricing/FEATURE.md).
+4. `booking-create` checks hold ownership/state/expiry, copies price snapshots, captures SessionStartsAt, and calculates PaymentDeadline = min(CreatedAt + PaymentCompletionWindow, SessionStartsAt), CancellationDeadline = SessionStartsAt - CancellationLeadTime (BR-05).
+5. `payment-create` and `booking-confirm` require a pending booking and now strictly before its captured PaymentDeadline (BR-06). No provider is invoked and confirmation still requires future application payment/seat validation.
+6. At PaymentDeadline, `booking-expire` becomes eligible. `booking-cancel` checks owner/state and captured CancellationDeadline (BR-07). No worker automatically runs these methods or releases seats. Planned expiry must atomically expire the booking and release only its own allocations (BR-08/09). Converted holds are excluded from hold expiry; the pending booking retains seats until its own deadline.
+
+Invalid configuration fails during startup registration. A started session rejects hold/booking creation. No recomputation occurs after config reload; restarting changes policy for new entities only. Existing deadlines are retained on their objects and are persisted by the [entity mappings](../local-persistence/FEATURE.md).
+
+Late provider success can still be recorded on a Payment attempt, but cannot confirm a booking after its deadline. The [retention/late-result decision](seat-retention-and-late-payments.md) requires durable reconciliation and idempotent compensation without restoring the booking or taking seats from a new owner (BR-10). Compensation/refunds and safe allocation/release remain future application workflows. There are no transaction boundaries, HTTP errors, background schedules, retries, or async events implemented here. Entry IDs are indexed in [entry-points.json](entry-points.json).

@@ -1,8 +1,9 @@
 # Application responsibilities
 
-- **TicketBooking.Api** is the deployable HTTP application. It owns diagnostic registration, request error customization, environment gating, and HTTPS middleware. Inputs are HTTP requests and host configuration; outputs are health text, OpenAPI JSON, or error responses. It owns no diagnostic database tables.
-- **TicketBooking.Infrastructure** is a referenced library providing the registered DbContext; it does not implement API diagnostics.
-- **TicketBooking.Application**, **TicketBooking.Domain**, and **TicketBooking.Contracts** are logical libraries. No diagnostic handlers or domain policies are implemented there.
-- PostgreSQL is a separate Compose service, not part of the API's liveness check.
+- **TicketBooking.Api** is the deployable host. It owns error service registration, exception/status classification, safe public payloads, unexpected-error logging, health/OpenAPI and HTTPS behavior.
+- **TicketBooking.Contracts** is a shared library owning ErrorCodes wire strings. Consumers should treat these strings as stable identifiers.
+- **TicketBooking.Domain** owns DomainError and DomainRuleException, emitted by reservation/booking/payment guards. It has no HTTP or Contracts dependency.
+- **TicketBooking.Infrastructure** owns the allocation conflict marker and EF exception context, not HTTP statuses.
+- **TicketBooking.Application** has no implemented business handlers or transaction orchestration yet.
 
-Evidence: [Program.cs](../../../src/TicketBooking.Api/Program.cs) and [API project references](../../../src/TicketBooking.Api/TicketBooking.Api.csproj). No frontend, worker, or separate authentication application exists in the inspected source. Human ownership is not specified.
+These are libraries within one modular monolith, not separate services. PostgreSQL is not part of the liveness check. No frontend or separate worker application is implemented. Human ownership is unspecified.

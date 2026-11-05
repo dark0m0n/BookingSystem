@@ -4,31 +4,46 @@ namespace TicketBooking.Domain.Booking;
 
 public sealed class Booking
 {
+    // Used by persistence; application callers must use the validated creation API.
+    private Booking()
+    {
+    }
+
+    private List<BookingItem> items = [];
+
     private Booking(
         Guid id,
         Guid userId,
         Guid sessionId,
         string number,
         IReadOnlyList<BookingItem> items,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        DateTimeOffset sessionStartsAt,
+        BookingTimingPolicy timingPolicy)
     {
         Id = DomainGuard.Id(id, nameof(id));
         UserId = userId;
         SessionId = sessionId;
         Number = DomainGuard.Text(number, nameof(number));
-        Items = items;
-        TotalAmount = items.Sum(item => item.PriceSnapshot);
+        this.items = items.ToList();
+        TotalAmount = Money.Sum(items.Select(item => item.PriceSnapshot));
         CreatedAt = createdAt.ToUniversalTime();
+        SessionStartsAt = sessionStartsAt.ToUniversalTime();
+        PaymentDeadline = timingPolicy.GetPaymentDeadline(CreatedAt, SessionStartsAt);
+        CancellationDeadline = timingPolicy.GetCancellationDeadline(SessionStartsAt);
     }
 
-    public Guid Id { get; }
-    public Guid UserId { get; }
-    public Guid SessionId { get; }
-    public string Number { get; }
+    public Guid Id { get; private set; }
+    public Guid UserId { get; private set; }
+    public Guid SessionId { get; private set; }
+    public string Number { get; private set; } = null!;
     public BookingStatus Status { get; private set; } = BookingStatus.PendingPayment;
-    public decimal TotalAmount { get; }
-    public DateTimeOffset CreatedAt { get; }
-    public IReadOnlyList<BookingItem> Items { get; }
+    public Money TotalAmount { get; private set; } = null!;
+    public DateTimeOffset CreatedAt { get; private set; }
+    public DateTimeOffset SessionStartsAt { get; private set; }
+    public DateTimeOffset PaymentDeadline { get; private set; }
+    public DateTimeOffset CancellationDeadline { get; private set; }
+    public IReadOnlyList<BookingItem> Items => items.AsReadOnly();
 
     /// <summary>
     /// Copies an owner's valid hold without mutating it. Application must persist the booking
@@ -39,9 +54,12 @@ public sealed class Booking
         SeatHold hold,
         Guid userId,
         string number,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        DateTimeOffset sessionStartsAt,
+        BookingTimingPolicy timingPolicy)
     {
         ArgumentNullException.ThrowIfNull(hold);
+        ArgumentNullException.ThrowIfNull(timingPolicy);
         ArgumentNullException.ThrowIfNull(timeProvider);
         var now = timeProvider.GetUtcNow().ToUniversalTime();
         hold.EnsureCanConvertAt(userId, now);
@@ -51,86 +69,76 @@ public sealed class Booking
             .ToArray();
 
         // Application must coordinate persisting the booking and converting the hold atomically.
-        return new Booking(id, userId, hold.SessionId, number, Array.AsReadOnly(items), now);
+        return new Booking(id, userId, hold.SessionId, number, Array.AsReadOnly(items), now, sessionStartsAt, timingPolicy);
     }
 
     /// <summary>
     /// Confirms a pending booking after Application has validated payment and seat allocation.
     /// </summary>
-    public void Confirm()
+    public void Confirm(TimeProvider timeProvider)
     {
-        EnsurePendingPayment();
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        EnsurePaymentCanCompleteAt(timeProvider.GetUtcNow().ToUniversalTime());
         // Application must validate successful payment and commit the seat changes atomically.
         Status = BookingStatus.Confirmed;
     }
 
     /// <summary>
-    /// Enforces ownership and a deadline derived by Application from the authoritative session.
-    /// No default cancellation window is assumed.
+    /// Enforces ownership and the cancellation deadline captured at booking creation.
     /// </summary>
-    public void Cancel(
-        Guid userId,
-        TimeProvider timeProvider,
-        DateTimeOffset sessionStartsAt,
-        DateTimeOffset cancellationDeadline)
+    public void Cancel(Guid userId, TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
         var now = timeProvider.GetUtcNow().ToUniversalTime();
-        sessionStartsAt = sessionStartsAt.ToUniversalTime();
-        cancellationDeadline = cancellationDeadline.ToUniversalTime();
         DomainGuard.Id(userId, nameof(userId));
         if (userId != UserId)
         {
-            throw new InvalidOperationException("Only the booking owner can cancel it.");
-        }
-
-        if (cancellationDeadline > sessionStartsAt)
-        {
-            throw new ArgumentOutOfRangeException(nameof(cancellationDeadline),
-                "The cancellation deadline must not be after the session starts.");
+            throw new DomainRuleException(DomainError.ResourceNotOwned, "Only the booking owner can cancel it.");
         }
 
         if (Status is not (BookingStatus.PendingPayment or BookingStatus.Confirmed))
         {
-            throw new InvalidOperationException("This booking cannot be cancelled.");
+            throw new DomainRuleException(DomainError.BookingNotCancellable, "This booking cannot be cancelled.");
         }
 
-        if (now >= cancellationDeadline)
+        if (now >= CancellationDeadline)
         {
-            throw new InvalidOperationException("The cancellation deadline has passed.");
+            throw new DomainRuleException(DomainError.CancellationDeadlinePassed, "The cancellation deadline has passed.");
         }
 
         Status = BookingStatus.Cancelled;
     }
 
     /// <summary>
-    /// Expires a pending booking when the authoritative payment deadline supplied by Application is reached.
+    /// Expires a pending booking when its captured payment deadline is reached.
     /// </summary>
-    public void Expire(TimeProvider timeProvider, DateTimeOffset paymentDeadline)
+    public void Expire(TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
         EnsurePendingPayment();
         var now = timeProvider.GetUtcNow().ToUniversalTime();
-        paymentDeadline = paymentDeadline.ToUniversalTime();
-        if (paymentDeadline <= CreatedAt)
+        if (now < PaymentDeadline)
         {
-            throw new ArgumentOutOfRangeException(nameof(paymentDeadline),
-                "The payment deadline must be after booking creation.");
-        }
-
-        if (now < paymentDeadline)
-        {
-            throw new InvalidOperationException("The payment deadline has not passed.");
+            throw new DomainRuleException(DomainError.PaymentDeadlineNotReached, "The payment deadline has not passed.");
         }
 
         Status = BookingStatus.Expired;
+    }
+
+    internal void EnsurePaymentCanCompleteAt(DateTimeOffset now)
+    {
+        EnsurePendingPayment();
+        if (now >= PaymentDeadline)
+        {
+            throw new DomainRuleException(DomainError.PaymentDeadlinePassed, "The payment completion deadline has passed.");
+        }
     }
 
     private void EnsurePendingPayment()
     {
         if (Status != BookingStatus.PendingPayment)
         {
-            throw new InvalidOperationException("Only a booking pending payment can perform this operation.");
+            throw new DomainRuleException(DomainError.BookingNotPendingPayment, "Only a booking pending payment can perform this operation.");
         }
     }
 }

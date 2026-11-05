@@ -1,12 +1,17 @@
 # Business context
 
-Actor: a developer needing a persistent local database for future application work. Prerequisites: Docker Compose, an available host port, local password configuration, and separately configured API secrets.
+Developers need repeatable local persistence, and the database must reject duplicate inventory identities and orphan records independently of application validation. Prerequisites remain Docker Compose, database configuration, and API User Secrets for local startup.
 
-| Rule | Current policy | Enforcement and evidence |
+| Rule | Policy | Enforcement/evidence |
 | --- | --- | --- |
-| BR-01 | Require a PostgreSQL password before provisioning. | [docker-compose.yml](../../../docker-compose.yml), required `POSTGRES_PASSWORD` interpolation. |
-| BR-02 | Publish PostgreSQL only on host loopback. | Compose `127.0.0.1` port mapping; runtime network exposure Not verified. |
-| BR-03 | Keep database files across ordinary container replacement. | Compose named `postgres_data` volume; README describes lifecycle. |
-| BR-04 | Require API connection configuration at startup. | [Program.cs](../../../src/TicketBooking.Api/Program.cs), missing `DefaultConnection` guard and `UseNpgsql`. |
+| BR-01 | Require a PostgreSQL password before local provisioning. | Compose required POSTGRES_PASSWORD interpolation. |
+| BR-02 | Publish the local database on loopback only. | docker-compose.yml port mapping. |
+| BR-03 | Preserve data across ordinary container replacement. | Named postgres_data volume; README lifecycle instructions. |
+| BR-04 | Require API connection configuration. | Program.cs DefaultConnection guard and UseNpgsql registration. |
+| BR-05 | One seat coordinate per auditorium; one inventory row per session/physical-seat pair. | SeatConfiguration and SessionSeatConfiguration unique indexes. |
+| BR-06 | All mapped parent references must exist; referenced history is not cascade-deleted. | Thirteen required FKs with Restrict delete behavior. |
+| BR-07 | Each hold/booking contains a session seat once, but historical parents may reuse it. | Composite item primary keys; no global unique item SessionSeatId. |
+| BR-08 | Booking numbers are unique. Payment idempotency is scoped to (BookingId, IdempotencyKey). | Unique indexes; keys are exact/case-sensitive. |
+| BR-09 | A nonnull provider reference identifies one payment for the current single provider. | Filtered unique ProviderReference index; multiple nulls allowed. |
 
-These are infrastructure policies, not ticketing business rules. No booking eligibility, reservation lifecycle, pricing, refunds, or customer permissions exist in the inspected implementation. Production access policies, backup policy, retention, and future entity requirements are unresolved.
+Seat Row values are exact, case-sensitive labels; no trimming/case folding is introduced. Identity has no User table yet, so UserId is not a database FK. Constraints do not implement authorization, session/auditorium consistency, globally unique active holds, or double-sale protection; those need further model/transaction work.

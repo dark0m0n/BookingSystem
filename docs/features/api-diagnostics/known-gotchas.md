@@ -1,9 +1,12 @@
 # Known gotchas
 
-- **Observed in source:** Removing either required configuration value prevents API startup, so even `/health` is unavailable. Cause: configuration guards precede `builder.Build`. Configure both values using User Secrets (README).
-- **Inferred-risk:** A healthy response can coexist with an unavailable database because no database health check is registered. Treat `/health` as liveness only; verify database readiness separately.
-- **Observed in source:** OpenAPI mapping is skipped outside Development. Use the Development profile for local inspection; do not assume the route exists in production.
-- **Observed in source:** Requiring `Jwt:SigningKey` does not authenticate requests. No authentication/authorization registration exists. Do not infer access control from the configuration guard.
-- **Inferred-risk:** Clients requesting unsupported response media types may not receive JSON ProblemDetails. Use `Accept: application/problem+json` for manual checks.
+- **Observed:** Missing connection configuration or JWT key stops startup before error middleware exists. Configure User Secrets per README; request ProblemDetails cannot report startup failures.
+- **Observed:** Liveness does not check PostgreSQL. A healthy response cannot establish database readiness.
+- **Observed:** OpenAPI is Development-only. Requiring a JWT key does not authenticate or authorize requests.
+- **Observed:** Middleware handles exceptions and bodyless error statuses; existing arbitrary response bodies are not rewritten. A response already started cannot reliably be replaced.
+- **Observed:** Unsupported Accept headers still receive JSON through the explicit fallback. Clients should request application/problem+json.
+- **Observed:** ArgumentException and arbitrary InvalidOperationException are not broadly mapped to 400/409. Validate request DTOs in future handlers; expected business failures must use DomainRuleException.
+- **Observed:** A different provider reference reports payment_reference_mismatch before the terminal-outcome check. An identical final result/reference is a no-op; payment_already_processed indicates a conflicting outcome or disallowed terminal reference recording.
+- **Observed:** Allocation conflicts indicate stale version/state or a missing row, not proof of which user owns a seat. Refresh and revalidate; do not blindly retry with a new token.
 
-Runtime response bodies, TLS setup, redirects, and exception handling are Not verified. Existing empty tests do not cover these paths. Database readiness and authentication remain implementation gaps, not documented guarantees.
+HTTP tests verify the error pipeline with synthetic routes, not real booking endpoints, production startup, TLS, redirects, health or OpenAPI responses. Authentication, application transaction coordination, durable callback deduplication, late-payment compensation and refunds remain implementation gaps.

@@ -1,22 +1,16 @@
-using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
+using TicketBooking.Api.Configuration;
+using TicketBooking.Api.Errors;
 using TicketBooking.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+builder.Services.AddBookingTiming(builder.Configuration);
 
 builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks();
-builder.Services.AddProblemDetails(options =>
-{
-    options.CustomizeProblemDetails = context =>
-    {
-        context.ProblemDetails.Instance ??= context.HttpContext.Request.Path;
-        context.ProblemDetails.Extensions["traceId"] =
-            Activity.Current?.Id ?? context.HttpContext.TraceIdentifier;
-    };
-});
+builder.Services.AddApiErrors();
 
 var connectionString =
     builder.Configuration.GetConnectionString("DefaultConnection")
@@ -25,6 +19,7 @@ var connectionString =
 
 builder.Services.AddDbContext<TicketBookingDbContext>(options =>
     options.UseNpgsql(connectionString));
+builder.Services.AddScoped<SessionSeatAllocationWriter>();
 
 var signingKey = builder.Configuration["Jwt:SigningKey"]
     ?? throw new InvalidOperationException("JWT signing key is missing.");
@@ -33,7 +28,7 @@ var app = builder.Build();
 
 // Use the same safe error format in every environment.
 app.UseExceptionHandler();
-app.UseStatusCodePages();
+app.UseStatusCodePages(ApiProblemDetails.WriteStatusCodeAsync);
 
 if (app.Environment.IsDevelopment())
 {

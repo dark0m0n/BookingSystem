@@ -53,7 +53,7 @@
     }
   ],
   "unresolved": [
-    "No HTTP endpoints, application workflows, or EF mappings exist for these entities.",
-    "State transition rules and concurrency enforcement are not implemented."
+    "No HTTP endpoints or application workflows exist for these mapped entities.",
+    "Complete allocation state workflows and durable owner correlation are not implemented; version-fenced row writes now exist."
   ]
 }

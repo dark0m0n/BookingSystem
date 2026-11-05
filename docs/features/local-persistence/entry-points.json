@@ -34,10 +34,43 @@
       "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261026113308_InitialCreate.cs",
       "symbol": "InitialCreate",
       "description": "Empty EF migration class; not a business schema or evidence of application."
+    },
+    {
+      "id": "schema-migration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261105143133_AddDomainForeignKeysAndUniqueConstraints.cs",
+      "symbol": "AddDomainForeignKeysAndUniqueConstraints",
+      "description": "Creates eleven tables with required foreign keys, composite item keys, and unique indexes."
+    },
+    {
+      "id": "seat-mapping",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Configurations/SeatConfiguration.cs",
+      "symbol": "public void Configure(",
+      "description": "Maps auditorium seat coordinate uniqueness and required auditorium reference."
+    },
+    {
+      "id": "inventory-mapping",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Configurations/SessionSeatConfiguration.cs",
+      "symbol": "public void Configure(",
+      "description": "Maps session/seat unique inventory identity and both required parent references."
+    },
+    {
+      "id": "payment-mapping",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Configurations/PaymentConfiguration.cs",
+      "symbol": "public void Configure(",
+      "description": "Maps booking-scoped idempotency and unique nonnull provider references."
     }
   ],
   "unresolved": [
-    "No mapped business entities, CRUD routes, or persistence workflows exist.",
-    "Running database state and applied migrations have not been verified."
+    "Identity UserId foreign keys await the Identity model.",
+    "Cross-row auditorium/session consistency, allocation ownership, transactional allocation workflows are not implemented; version-fenced row writes now exist.",
+    "Development/deployed database migration state has not been verified; only an isolated test database was migrated."
   ]
 }

@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "feature": "money-and-pricing",
+  "status": "partial",
+  "entry_points": [
+    {
+      "id": "money-create",
+      "app": "TicketBooking.Domain",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Money.cs",
+      "symbol": "public Money(",
+      "description": "Validates a monetary amount and explicit supported currency."
+    },
+    {
+      "id": "money-add",
+      "app": "TicketBooking.Domain",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Money.cs",
+      "symbol": "public Money Add(",
+      "description": "Adds values only in the same currency and enforces result precision/range."
+    },
+    {
+      "id": "money-sum",
+      "app": "TicketBooking.Domain",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Money.cs",
+      "symbol": "public static Money Sum(",
+      "description": "Calculates a same-currency sum without a client-supplied total."
+    },
+    {
+      "id": "hold-pricing",
+      "app": "TicketBooking.Domain",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Reservation/SeatHold.cs",
+      "symbol": "public SeatHold(",
+      "description": "Snapshots selected inventory prices and derives the hold total."
+    },
+    {
+      "id": "booking-pricing",
+      "app": "TicketBooking.Domain",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Booking/Booking.cs",
+      "symbol": "public static Booking CreateFromHold(",
+      "description": "Copies hold snapshots and calculates the booking total."
+    },
+    {
+      "id": "payment-pricing",
+      "app": "TicketBooking.Domain",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Payment/Payment.cs",
+      "symbol": "public static Payment CreateForBooking(",
+      "description": "Derives amount/currency from a pending booking; no amount parameter."
+    },
+    {
+      "id": "hold-item-price-snapshot",
+      "app": "TicketBooking.Domain.Reservation",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Reservation/SeatHoldItem.cs",
+      "symbol": "public SeatHoldItem(",
+      "description": "Captures a separate amount/currency Money copy from server inventory."
+    },
+    {
+      "id": "booking-item-price-snapshot",
+      "app": "TicketBooking.Domain.Booking",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Booking/BookingItem.cs",
+      "symbol": "public BookingItem(",
+      "description": "Captures a separate Money copy of the original hold item without catalogue repricing."
+    }
+  ],
+  "unresolved": [
+    "No public checkout API, authoritative inventory repository, or provider adapter is implemented.",
+    "Taxes, discounts, additional currencies, and exchange conversion require explicit future policy."
+  ]
+}

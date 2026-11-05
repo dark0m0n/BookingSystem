@@ -11,7 +11,7 @@ public class CatalogueTests
         var start = new DateTimeOffset(2026, 11, 5, 18, 0, 0, TimeSpan.FromHours(2));
         var session = new Session(Guid.NewGuid(), offering.Id, Guid.NewGuid(), start, start.Add(offering.Duration));
         var seatId = Guid.NewGuid();
-        var seat = new SessionSeat(Guid.NewGuid(), session.Id, seatId, 125.50m);
+        var seat = new SessionSeat(Guid.NewGuid(), session.Id, seatId, LifecycleTestData.Price(125.50m));
 
         Assert.Equal(EventStatus.Draft, offering.Status);
         Assert.Equal(offering.Id, session.EventId);
@@ -19,7 +19,7 @@ public class CatalogueTests
         Assert.Equal(SessionStatus.Scheduled, session.Status);
         Assert.Equal(session.Id, seat.SessionId);
         Assert.Equal(seatId, seat.SeatId);
-        Assert.Equal(125.50m, seat.Price);
+        Assert.Equal(LifecycleTestData.Price(125.50m), seat.Price);
         Assert.Equal(SessionSeatStatus.Available, seat.Status);
         Assert.Equal(0L, seat.Version);
     }
@@ -69,20 +69,20 @@ public class CatalogueTests
     [InlineData(SessionSeatStatus.Unavailable)]
     public void SessionSeat_AcceptsEachSpecifiedStatus(SessionSeatStatus status)
     {
-        var seat = new SessionSeat(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 0m, status, 7);
+        var seat = new SessionSeat(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), LifecycleTestData.Price(0m), status, 7);
 
         Assert.Equal(status, seat.Status);
-        Assert.Equal(0m, seat.Price);
+        Assert.Equal(LifecycleTestData.Price(0m), seat.Price);
         Assert.Equal(7L, seat.Version);
     }
 
     [Fact]
-    public void SessionSeat_WhenPriceOrVersionIsNegative_Throws()
+    public void SessionSeat_WhenPriceIsMissingOrVersionIsNegative_Throws()
     {
+        Assert.Throws<ArgumentNullException>(() =>
+            new SessionSeat(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), null!));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new SessionSeat(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), -0.01m));
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new SessionSeat(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1m, version: -1));
+            new SessionSeat(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), LifecycleTestData.Price(1m), version: -1));
     }
 
     [Fact]
@@ -95,6 +95,6 @@ public class CatalogueTests
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             new Session(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), start, start.AddHours(1), (SessionStatus)99));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new SessionSeat(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1m, (SessionSeatStatus)99));
+            new SessionSeat(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), LifecycleTestData.Price(1m), (SessionSeatStatus)99));
     }
 }

@@ -12,7 +12,7 @@ public class BookingTests
         var hold = LifecycleTestData.Hold(125.55m, 35.45m, 0m);
         var id = Guid.NewGuid();
 
-        var booking = BookingEntity.CreateFromHold(id, hold, hold.UserId, "BK-001", LifecycleTestData.Clock);
+        var booking = BookingEntity.CreateFromHold(id, hold, hold.UserId, "BK-001", LifecycleTestData.Clock, LifecycleTestData.SessionStartsAt, LifecycleTestData.TimingPolicy);
 
         Assert.Equal(id, booking.Id);
         Assert.Equal(hold.UserId, booking.UserId);
@@ -20,7 +20,7 @@ public class BookingTests
         Assert.Equal("BK-001", booking.Number);
         Assert.Equal(LifecycleTestData.Now, booking.CreatedAt);
         Assert.Equal(BookingStatus.PendingPayment, booking.Status);
-        Assert.Equal(161m, booking.TotalAmount);
+        Assert.Equal(LifecycleTestData.Price(161m), booking.TotalAmount);
         Assert.All(booking.Items, item => Assert.Equal(id, item.BookingId));
         Assert.Equal(hold.Items.Select(item => item.SessionSeatId), booking.Items.Select(item => item.SessionSeatId));
         Assert.Equal(hold.Items.Select(item => item.PriceSnapshot), booking.Items.Select(item => item.PriceSnapshot));
@@ -34,10 +34,10 @@ public class BookingTests
     {
         var hold = LifecycleTestData.Hold();
 
-        Assert.Throws<InvalidOperationException>(() =>
-            BookingEntity.CreateFromHold(Guid.NewGuid(), hold, Guid.NewGuid(), "BK-001", LifecycleTestData.Clock));
-        Assert.Throws<InvalidOperationException>(() =>
-            BookingEntity.CreateFromHold(Guid.NewGuid(), hold, hold.UserId, "BK-001", LifecycleTestData.At(hold.ExpiresAt)));
+        Assert.Throws<DomainRuleException>(() =>
+            BookingEntity.CreateFromHold(Guid.NewGuid(), hold, Guid.NewGuid(), "BK-001", LifecycleTestData.Clock, LifecycleTestData.SessionStartsAt, LifecycleTestData.TimingPolicy));
+        Assert.Throws<DomainRuleException>(() =>
+            BookingEntity.CreateFromHold(Guid.NewGuid(), hold, hold.UserId, "BK-001", LifecycleTestData.At(hold.ExpiresAt), LifecycleTestData.SessionStartsAt, LifecycleTestData.TimingPolicy));
         Assert.Equal(SeatHoldStatus.Active, hold.Status);
     }
 
@@ -61,24 +61,20 @@ public class BookingTests
             hold.Expire(LifecycleTestData.At(hold.ExpiresAt));
         }
 
-        Assert.Throws<InvalidOperationException>(() =>
-            BookingEntity.CreateFromHold(Guid.NewGuid(), hold, hold.UserId, "BK-001", LifecycleTestData.Clock));
+        Assert.Throws<DomainRuleException>(() =>
+            BookingEntity.CreateFromHold(Guid.NewGuid(), hold, hold.UserId, "BK-001", LifecycleTestData.Clock, LifecycleTestData.SessionStartsAt, LifecycleTestData.TimingPolicy));
     }
 
     [Fact]
-    public void CreateFromHold_WhenBookingDataOrTotalIsInvalid_DoesNotConsumeHold()
+    public void CreateFromHold_WhenBookingDataIsInvalid_DoesNotConsumeHold()
     {
         var hold = LifecycleTestData.Hold();
         Assert.Throws<ArgumentException>(() =>
-            BookingEntity.CreateFromHold(Guid.Empty, hold, hold.UserId, "BK-001", LifecycleTestData.Clock));
+            BookingEntity.CreateFromHold(Guid.Empty, hold, hold.UserId, "BK-001", LifecycleTestData.Clock, LifecycleTestData.SessionStartsAt, LifecycleTestData.TimingPolicy));
         Assert.Throws<ArgumentException>(() =>
-            BookingEntity.CreateFromHold(Guid.NewGuid(), hold, hold.UserId, " ", LifecycleTestData.Clock));
+            BookingEntity.CreateFromHold(Guid.NewGuid(), hold, hold.UserId, " ", LifecycleTestData.Clock, LifecycleTestData.SessionStartsAt, LifecycleTestData.TimingPolicy));
         Assert.Equal(SeatHoldStatus.Active, hold.Status);
 
-        var overflowingHold = LifecycleTestData.Hold(decimal.MaxValue, 1m);
-        Assert.Throws<OverflowException>(() => BookingEntity.CreateFromHold(Guid.NewGuid(), overflowingHold,
-            overflowingHold.UserId, "BK-002", LifecycleTestData.Clock));
-        Assert.Equal(SeatHoldStatus.Active, overflowingHold.Status);
     }
 
     public static IEnumerable<object[]> Transitions()
@@ -113,7 +109,10 @@ public class BookingTests
         }
         else
         {
-            Assert.Throws<InvalidOperationException>(() => Transition(booking, to));
+            var expectedError = to == BookingStatus.Cancelled
+                ? DomainError.BookingNotCancellable
+                : DomainError.BookingNotPendingPayment;
+            Assert.Equal(expectedError, Assert.Throws<DomainRuleException>(() => Transition(booking, to)).Error);
             Assert.Equal(from, booking.Status);
         }
     }
@@ -122,26 +121,31 @@ public class BookingTests
     public void Cancel_RequiresTheOwnerAndDoesNotChangeTotal()
     {
         var booking = LifecycleTestData.Booking();
-        booking.Confirm();
+        booking.Confirm(LifecycleTestData.Clock);
 
-        Assert.Throws<InvalidOperationException>(() => booking.Cancel(Guid.NewGuid(), LifecycleTestData.Clock,
-            LifecycleTestData.Now.AddHours(2), LifecycleTestData.Now.AddHours(1)));
+        Assert.Throws<DomainRuleException>(() => booking.Cancel(Guid.NewGuid(), LifecycleTestData.Clock));
         Assert.Equal(BookingStatus.Confirmed, booking.Status);
-        booking.Cancel(booking.UserId, LifecycleTestData.Clock,
-            LifecycleTestData.Now.AddHours(2), LifecycleTestData.Now.AddHours(1));
+        booking.Cancel(booking.UserId, LifecycleTestData.Clock);
         Assert.Equal(BookingStatus.Cancelled, booking.Status);
-        Assert.Equal(100m, booking.TotalAmount);
+        Assert.Equal(LifecycleTestData.Price(100m), booking.TotalAmount);
     }
 
     [Theory]
-    [InlineData(-1, true)]
-    [InlineData(0, false)]
-    [InlineData(1, false)]
-    public void Cancel_EnforcesTheExactDeadline(int ticksFromDeadline, bool allowed)
+    [InlineData(BookingStatus.PendingPayment, -1, true)]
+    [InlineData(BookingStatus.PendingPayment, 0, false)]
+    [InlineData(BookingStatus.PendingPayment, 1, false)]
+    [InlineData(BookingStatus.Confirmed, -1, true)]
+    [InlineData(BookingStatus.Confirmed, 0, false)]
+    [InlineData(BookingStatus.Confirmed, 1, false)]
+    public void Cancel_EnforcesTheExactDeadline(BookingStatus initialStatus, int ticksFromDeadline, bool allowed)
     {
         var booking = LifecycleTestData.Booking();
-        var deadline = LifecycleTestData.Now.AddHours(1);
-        void Cancel() => booking.Cancel(booking.UserId, LifecycleTestData.At(deadline.AddTicks(ticksFromDeadline)), deadline.AddHours(1), deadline);
+        if (initialStatus == BookingStatus.Confirmed)
+        {
+            booking.Confirm(LifecycleTestData.Clock);
+        }
+        var deadline = booking.CancellationDeadline;
+        void Cancel() => booking.Cancel(booking.UserId, LifecycleTestData.At(deadline.AddTicks(ticksFromDeadline)));
 
         if (allowed)
         {
@@ -150,40 +154,42 @@ public class BookingTests
         }
         else
         {
-            Assert.Throws<InvalidOperationException>(Cancel);
-            Assert.Equal(BookingStatus.PendingPayment, booking.Status);
+            Assert.Equal(DomainError.CancellationDeadlinePassed, Assert.Throws<DomainRuleException>(Cancel).Error);
+            Assert.Equal(initialStatus, booking.Status);
         }
+
+        Assert.Equal(deadline, booking.CancellationDeadline);
+        Assert.Equal(new Money(100m, "UAH"), booking.TotalAmount);
     }
 
     [Fact]
-    public void Cancel_WhenDeadlineIsAfterSessionStart_Rejects()
+    public void Booking_CapturesDeadlinesFromTheTimingPolicy()
     {
         var booking = LifecycleTestData.Booking();
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => booking.Cancel(booking.UserId, LifecycleTestData.Clock,
-            LifecycleTestData.Now.AddHours(1), LifecycleTestData.Now.AddHours(2)));
-        Assert.Equal(BookingStatus.PendingPayment, booking.Status);
+        Assert.Equal(LifecycleTestData.Now.AddMinutes(15), booking.PaymentDeadline);
+        Assert.Equal(LifecycleTestData.Now.AddHours(1), booking.CancellationDeadline);
+        Assert.Equal(LifecycleTestData.SessionStartsAt, booking.SessionStartsAt);
     }
 
     [Fact]
     public void Expire_RequiresAValidReachedPaymentDeadline()
     {
         var booking = LifecycleTestData.Booking();
-        var deadline = LifecycleTestData.Now.AddMinutes(10);
+        var deadline = booking.PaymentDeadline;
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => booking.Expire(LifecycleTestData.At(deadline), booking.CreatedAt));
-        Assert.Throws<InvalidOperationException>(() => booking.Expire(LifecycleTestData.At(deadline.AddTicks(-1)), deadline));
+        Assert.Throws<DomainRuleException>(() => booking.Expire(LifecycleTestData.At(deadline.AddTicks(-1))));
         Assert.Equal(BookingStatus.PendingPayment, booking.Status);
-        booking.Expire(LifecycleTestData.At(deadline), deadline);
+        booking.Expire(LifecycleTestData.At(deadline));
         Assert.Equal(BookingStatus.Expired, booking.Status);
     }
 
     [Fact]
     public void BookingItem_ValidatesIdentityAndSnapshot()
     {
-        Assert.Throws<ArgumentException>(() => new BookingItem(Guid.Empty, Guid.NewGuid(), 0m));
-        Assert.Throws<ArgumentException>(() => new BookingItem(Guid.NewGuid(), Guid.Empty, 0m));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new BookingItem(Guid.NewGuid(), Guid.NewGuid(), -1m));
+        Assert.Throws<ArgumentException>(() => new BookingItem(Guid.Empty, Guid.NewGuid(), LifecycleTestData.Price(0m)));
+        Assert.Throws<ArgumentException>(() => new BookingItem(Guid.NewGuid(), Guid.Empty, LifecycleTestData.Price(0m)));
+        Assert.Throws<ArgumentNullException>(() => new BookingItem(Guid.NewGuid(), Guid.NewGuid(), null!));
     }
 
     private static void Transition(BookingEntity booking, BookingStatus target)
@@ -191,14 +197,13 @@ public class BookingTests
         switch (target)
         {
             case BookingStatus.Confirmed:
-                booking.Confirm();
+                booking.Confirm(LifecycleTestData.Clock);
                 break;
             case BookingStatus.Cancelled:
-                booking.Cancel(booking.UserId, LifecycleTestData.Clock,
-                    LifecycleTestData.Now.AddHours(2), LifecycleTestData.Now.AddHours(1));
+                booking.Cancel(booking.UserId, LifecycleTestData.Clock);
                 break;
             case BookingStatus.Expired:
-                booking.Expire(LifecycleTestData.At(LifecycleTestData.Now.AddMinutes(10)), LifecycleTestData.Now.AddMinutes(10));
+                booking.Expire(LifecycleTestData.At(booking.PaymentDeadline));
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(target));

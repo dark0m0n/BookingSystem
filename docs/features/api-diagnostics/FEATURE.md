@@ -1,20 +1,19 @@
 # API diagnostics
 
-Status: **implemented** (API foundation only).
+Status: **implemented** (API foundation and error contract). Working tree inspected.
 
-Inspected revision: `ea94ab900a3bc4b7b772e0f0cbcb20bb5d52532d`; working tree inspected. Implementation evidence is static source inspection; runtime behavior is **Not verified**.
+Developers can inspect liveness and Development OpenAPI. Clients receive stable machine-readable failures independently of message wording. `AddApiErrors`, `ApiErrorCatalog`, and the shared `ErrorCodes` constants implement the error contract; see [backend structure](backend-structure.md).
 
-Developers and operators can inspect API liveness, retrieve development OpenAPI documentation, and receive consistent error responses. Evidence: [Program.cs](../../../src/TicketBooking.Api/Program.cs), `AddHealthChecks`, `MapOpenApi`, `AddProblemDetails`, and exception/status middleware.
-
-Scope: `/health`, development OpenAPI, HTTPS redirection, and error formatting. Booking, login, database readiness, and interactive Swagger UI are outside the implemented scope. Startup depends on database configuration and a JWT signing key; requiring a key does not implement authentication.
+Scope: `/health`, Development OpenAPI, HTTPS redirection, and request error formatting. Booking/payment business endpoints, authentication, database readiness, and Swagger UI remain outside this feature. Startup still requires database configuration and a JWT signing key.
 
 ## Acceptance and verification
 
-- Liveness endpoint is mapped without database checks: implemented; runtime Not verified.
-- OpenAPI mapping is conditional on Development: implemented; runtime Not verified.
-- ProblemDetails includes request `instance` and `traceId`: implemented; response negotiation and exception output Not verified at runtime.
+- Domain conflicts map to stable codes and safe ProblemDetails: verified by domain and real HTTP integration tests.
+- Exception/status responses include `code`, `instance`, `traceId`, and a code-specific `type`: verified, including unsupported Accept headers, missing routes, and wrong methods.
+- Identical payment outcomes remain idempotent: verified; conflicting outcomes return `payment_already_processed`.
+- Liveness, OpenAPI, production host startup, TLS and redirects: source inspected; runtime Not verified by these tests.
 
-Configure API User Secrets as described in [README](../../../README.md), including `Jwt:SigningKey`. Run `dotnet run --project src/TicketBooking.Api --launch-profile https`. Manually request `https://localhost:7281/health`, `/openapi/v1.json`, and an unknown route with `Accept: application/problem+json`. These checks were not run during documentation.
+Run `dotnet test TicketBooking.slnx --filter FullyQualifiedName~ApiErrorContractTests` for the HTTP contract. Tests start an isolated local HTTP server with production error registrations and synthetic routes; they do not require PostgreSQL or API secrets. Configure the real API using [README](../../../README.md).
 
 ## Navigation
 
@@ -27,3 +26,4 @@ Configure API User Secrets as described in [README](../../../README.md), includi
 - [Data model](data-model.md)
 - [Integration points](integration-points.md)
 - [Known gotchas](known-gotchas.md)
+- [Error code contract](error-codes.md)

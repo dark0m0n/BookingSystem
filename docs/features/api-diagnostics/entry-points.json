@@ -33,12 +33,52 @@
       "app": "TicketBooking.Api",
       "kind": "service",
       "path": "src/TicketBooking.Api/Program.cs",
-      "symbol": "builder.Services.AddProblemDetails",
-      "description": "Inline ProblemDetails customization combined with exception/status middleware."
+      "symbol": "builder.Services.AddApiErrors()",
+      "description": "Registers code/path/trace enrichment and typed exception handling; status middleware uses the shared writer."
+    },
+    {
+      "id": "error-handler",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Errors/ApiExceptionHandler.cs",
+      "symbol": "public sealed class ApiExceptionHandler",
+      "description": "Maps request exceptions and logs unexpected failures."
+    },
+    {
+      "id": "error-catalog",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Errors/ApiErrorCatalog.cs",
+      "symbol": "public static class ApiErrorCatalog",
+      "description": "Defines explicit domain/status/concurrency mappings."
+    },
+    {
+      "id": "error-writer",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Errors/ApiProblemDetails.cs",
+      "symbol": "public static class ApiProblemDetails",
+      "description": "Writes safe ProblemDetails with JSON fallback."
+    },
+    {
+      "id": "error-codes",
+      "app": "TicketBooking.Contracts",
+      "kind": "service",
+      "path": "src/TicketBooking.Contracts/Errors/ErrorCodes.cs",
+      "symbol": "public static class ErrorCodes",
+      "description": "Owns stable public error strings."
+    },
+    {
+      "id": "domain-errors",
+      "app": "TicketBooking.Domain",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/DomainRuleException.cs",
+      "symbol": "public sealed class DomainRuleException",
+      "description": "Carries typed business rule failures."
     }
   ],
   "unresolved": [
-    "OpenAPI default route and HTTP response behavior have not been verified at runtime.",
-    "No authentication or database readiness implementation exists."
+    "Health, OpenAPI, TLS and full production host startup are not verified by the error HTTP tests.",
+    "Business endpoints, authentication, durable callback deduplication and transaction orchestration remain absent."
   ]
 }

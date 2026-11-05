@@ -1,10 +1,10 @@
 # Reservation, booking, and payment domain lifecycle
 
-Status: **partial**. Domain entities and local state transitions are implemented; application workflows, persistence, and external integrations are absent.
+Status: **partial**. Domain entities, local state transitions and EF persistence mappings are implemented; complete application workflows and external integrations remain absent.
 
 Working tree inspected on top of `fbed4d974e84f7625413c61379701f3b21dcff88`. Requirements came from the user-provided `TicketBooking_Project_Plan.md`, sections 5–7 and phases 3/5/6/7. The source plan is outside the repository; the relevant rules and design interpretations are recorded in this bundle rather than requiring that local file to run the project.
 
-A future customer can hold seats, create a booking, and complete a simulated payment. The present supported actor is trusted application/test code: it can construct holds with price snapshots, derive pending bookings from valid owned holds, and perform guarded lifecycle operations. No customer-facing endpoints are implemented. Stored instants follow the shared [UTC/clock convention](../../time-conventions.md).
+A future customer can hold seats, create a booking, and complete a simulated payment. The present supported actor is trusted application/test code: it can construct holds from server-resolved session-seat prices, derive pending bookings from valid owned holds, and perform guarded lifecycle operations. Monetary values and server-derived totals follow the [money/pricing policy](../money-and-pricing/FEATURE.md). Timing defaults/configuration and captured deadlines follow the [booking timing policy](../booking-timing/FEATURE.md). No customer-facing endpoints are implemented. Stored instants follow the shared [UTC/clock convention](../../time-conventions.md).
 
 ## Acceptance and verification
 
@@ -26,3 +26,7 @@ Run `dotnet test tests/TicketBooking.Domain.Tests/TicketBooking.Domain.Tests.csp
 - [Data model](data-model.md)
 - [Integration points](integration-points.md)
 - [Known gotchas](known-gotchas.md)
+
+## Related decision
+
+See the [seat ownership, price history and transition decision record](../../decisions/0001-seat-ownership-price-history-and-transitions.md) for rationale, enforcement boundaries and remaining transaction work.

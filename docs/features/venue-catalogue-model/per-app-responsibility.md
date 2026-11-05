@@ -6,7 +6,7 @@ The deployable API and PostgreSQL service are unchanged. All six types are part 
 - **Catalogue** boundary owns Event, Session, SessionSeat, and their status enums: offerings, schedule, and per-session inventory representation.
 - **Reservation/Booking** now contain [hold/booking lifecycle entities](../reservation-booking-payment/FEATURE.md); application transactions and SessionSeat updates remain unimplemented. SessionSeat status alone does not implement those workflows.
 - **Application** will coordinate referenced-entity checks and cross-boundary operations when implemented.
-- **Infrastructure** retains EF/provider responsibility; no mappings are added here.
+- **Infrastructure** now supplies the [entity mappings and relational constraints](../local-persistence/FEATURE.md).
 - **Contracts/API** receive no DTOs, routes, or public HTTP behavior in this change.
 
 The entity constructors own local validation and return read-only scalar values. They perform no external calls or data access. Human owners and deployed database ownership are not assigned. Evidence: [domain map](../../../src/TicketBooking.Domain/README.md) and [entity source index](entry-points.json).

@@ -1,48 +1,65 @@
+using TicketBooking.Domain.Catalogue;
+
 namespace TicketBooking.Domain.Reservation;
 
 public sealed class SeatHold
 {
+    // Used by persistence; application callers must use the validated creation API.
+    private SeatHold()
+    {
+    }
+
+    private List<SeatHoldItem> items = [];
+
     public SeatHold(
         Guid id,
         Guid sessionId,
         Guid userId,
-        DateTimeOffset expiresAt,
-        IEnumerable<SeatHoldItem> items,
-        TimeProvider timeProvider)
+        DateTimeOffset sessionStartsAt,
+        IEnumerable<SessionSeat> seats,
+        TimeProvider timeProvider,
+        BookingTimingPolicy timingPolicy)
     {
         Id = DomainGuard.Id(id, nameof(id));
         SessionId = DomainGuard.Id(sessionId, nameof(sessionId));
         UserId = DomainGuard.Id(userId, nameof(userId));
-        ArgumentNullException.ThrowIfNull(items);
+        ArgumentNullException.ThrowIfNull(seats);
         ArgumentNullException.ThrowIfNull(timeProvider);
+        ArgumentNullException.ThrowIfNull(timingPolicy);
         var now = timeProvider.GetUtcNow().ToUniversalTime();
 
-        if (expiresAt <= now)
+        var expiresAt = timingPolicy.GetHoldExpiration(now, sessionStartsAt);
+
+        var selectedSeats = seats.ToArray();
+        if (selectedSeats.Length == 0 || selectedSeats.Any(seat => seat is null || seat.SessionId != sessionId))
         {
-            throw new ArgumentOutOfRangeException(nameof(expiresAt), "A new hold must expire in the future.");
+            throw new ArgumentException("A hold must contain seats from its session.", nameof(seats));
         }
 
-        var snapshot = items.ToArray();
-        if (snapshot.Length == 0 || snapshot.Any(item => item is null || item.SeatHoldId != id))
+        if (selectedSeats.Select(seat => seat.Id).Distinct().Count() != selectedSeats.Length)
         {
-            throw new ArgumentException("A hold must contain items belonging to this hold.", nameof(items));
+            throw new ArgumentException("A hold must not contain duplicate session seats.", nameof(seats));
         }
 
-        if (snapshot.Select(item => item.SessionSeatId).Distinct().Count() != snapshot.Length)
+        if (selectedSeats.Any(seat => seat.Status != SessionSeatStatus.Available))
         {
-            throw new ArgumentException("A hold must not contain duplicate session seats.", nameof(items));
+            throw new DomainRuleException(DomainError.SeatNotAvailable, "Only available session seats can be held.");
         }
 
+        // Prices come from server-resolved inventory, not request price snapshots or totals.
+        var snapshot = selectedSeats.Select(seat => new SeatHoldItem(id, seat.Id, seat.Price)).ToArray();
+        TotalAmount = Money.Sum(snapshot.Select(item => item.PriceSnapshot));
         ExpiresAt = expiresAt.ToUniversalTime();
-        Items = Array.AsReadOnly(snapshot);
+        items = snapshot.ToList();
     }
 
-    public Guid Id { get; }
-    public Guid SessionId { get; }
-    public Guid UserId { get; }
-    public DateTimeOffset ExpiresAt { get; }
+    public Guid Id { get; private set; }
+    public Guid SessionId { get; private set; }
+    public Guid UserId { get; private set; }
+    public DateTimeOffset ExpiresAt { get; private set; }
     public SeatHoldStatus Status { get; private set; } = SeatHoldStatus.Active;
-    public IReadOnlyList<SeatHoldItem> Items { get; }
+    public IReadOnlyList<SeatHoldItem> Items => items.AsReadOnly();
+    public Money TotalAmount { get; private set; } = null!;
 
     public void EnsureCanConvert(Guid userId, TimeProvider timeProvider)
     {
@@ -58,7 +75,7 @@ public sealed class SeatHold
 
         if (now >= ExpiresAt)
         {
-            throw new InvalidOperationException("The hold has expired.");
+            throw new DomainRuleException(DomainError.HoldExpired, "The hold has expired.");
         }
     }
 
@@ -82,7 +99,7 @@ public sealed class SeatHold
 
         if (now < ExpiresAt)
         {
-            throw new InvalidOperationException("The hold has not expired yet.");
+            throw new DomainRuleException(DomainError.HoldNotExpired, "The hold has not expired yet.");
         }
 
         Status = SeatHoldStatus.Expired;
@@ -93,15 +110,20 @@ public sealed class SeatHold
         DomainGuard.Id(userId, nameof(userId));
         if (userId != UserId)
         {
-            throw new InvalidOperationException("Only the hold owner can perform this operation.");
+            throw new DomainRuleException(DomainError.ResourceNotOwned, "Only the hold owner can perform this operation.");
         }
     }
 
     private void EnsureActive()
     {
+        if (Status == SeatHoldStatus.Expired)
+        {
+            throw new DomainRuleException(DomainError.HoldExpired, "The hold has expired.");
+        }
+
         if (Status != SeatHoldStatus.Active)
         {
-            throw new InvalidOperationException("Only an active hold can change state.");
+            throw new DomainRuleException(DomainError.HoldNotActive, "Only an active hold can change state.");
         }
     }
 }

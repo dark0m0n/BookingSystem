@@ -1,3 +1,4 @@
+using TicketBooking.Domain.Catalogue;
 using TicketBooking.Domain.Reservation;
 
 namespace TicketBooking.Domain.Tests;
@@ -8,14 +9,14 @@ public class SeatHoldTests
     public void Hold_WhenConstructed_CopiesItsItemsAndStartsActive()
     {
         var id = Guid.NewGuid();
-        var item = new SeatHoldItem(id, Guid.NewGuid(), 12.50m);
-        var items = new List<SeatHoldItem> { item };
-        var hold = new SeatHold(id, Guid.NewGuid(), Guid.NewGuid(),
-            LifecycleTestData.Now.AddMinutes(10), items, LifecycleTestData.Clock);
+        var sessionId = Guid.NewGuid();
+        var seat = LifecycleTestData.Seat(sessionId, 12.50m);
+        var items = new List<SessionSeat> { seat };
+        var hold = new SeatHold(id, sessionId, Guid.NewGuid(), LifecycleTestData.Now.AddMinutes(10), items, LifecycleTestData.Clock, LifecycleTestData.TimingPolicy);
         items.Clear();
 
         Assert.Equal(SeatHoldStatus.Active, hold.Status);
-        Assert.Equal(12.50m, Assert.Single(hold.Items).PriceSnapshot);
+        Assert.Equal(LifecycleTestData.Price(12.50m), Assert.Single(hold.Items).PriceSnapshot);
         Assert.Throws<NotSupportedException>(() => ((IList<SeatHoldItem>)hold.Items).Clear());
     }
 
@@ -36,7 +37,7 @@ public class SeatHoldTests
     {
         var hold = LifecycleTestData.Hold();
 
-        Assert.Throws<InvalidOperationException>(() =>
+        Assert.Throws<DomainRuleException>(() =>
             hold.Convert(hold.UserId, LifecycleTestData.At(hold.ExpiresAt.AddTicks(ticksAfterExpiry))));
         Assert.Equal(SeatHoldStatus.Active, hold.Status);
     }
@@ -46,8 +47,8 @@ public class SeatHoldTests
     {
         var hold = LifecycleTestData.Hold();
 
-        Assert.Throws<InvalidOperationException>(() => hold.Convert(Guid.NewGuid(), LifecycleTestData.Clock));
-        Assert.Throws<InvalidOperationException>(() => hold.Cancel(Guid.NewGuid(), LifecycleTestData.Clock));
+        Assert.Throws<DomainRuleException>(() => hold.Convert(Guid.NewGuid(), LifecycleTestData.Clock));
+        Assert.Throws<DomainRuleException>(() => hold.Cancel(Guid.NewGuid(), LifecycleTestData.Clock));
         Assert.Equal(SeatHoldStatus.Active, hold.Status);
     }
 
@@ -68,7 +69,7 @@ public class SeatHoldTests
     {
         var hold = LifecycleTestData.Hold();
 
-        Assert.Throws<InvalidOperationException>(() => hold.Expire(LifecycleTestData.At(hold.ExpiresAt.AddTicks(-1))));
+        Assert.Throws<DomainRuleException>(() => hold.Expire(LifecycleTestData.At(hold.ExpiresAt.AddTicks(-1))));
         Assert.Equal(SeatHoldStatus.Active, hold.Status);
     }
 
@@ -92,9 +93,13 @@ public class SeatHoldTests
                 break;
         }
 
-        Assert.Throws<InvalidOperationException>(() => hold.Convert(hold.UserId, LifecycleTestData.Clock));
-        Assert.Throws<InvalidOperationException>(() => hold.Cancel(hold.UserId, LifecycleTestData.Clock));
-        Assert.Throws<InvalidOperationException>(() => hold.Expire(LifecycleTestData.At(hold.ExpiresAt)));
+        var expectedError = terminal == SeatHoldStatus.Expired ? DomainError.HoldExpired : DomainError.HoldNotActive;
+        Assert.Equal(expectedError,
+            Assert.Throws<DomainRuleException>(() => hold.Convert(hold.UserId, LifecycleTestData.Clock)).Error);
+        Assert.Equal(expectedError,
+            Assert.Throws<DomainRuleException>(() => hold.Cancel(hold.UserId, LifecycleTestData.Clock)).Error);
+        Assert.Equal(expectedError,
+            Assert.Throws<DomainRuleException>(() => hold.Expire(LifecycleTestData.At(hold.ExpiresAt))).Error);
         Assert.Equal(terminal, hold.Status);
     }
 
@@ -103,26 +108,53 @@ public class SeatHoldTests
     {
         var hold = LifecycleTestData.Hold();
 
-        Assert.Throws<InvalidOperationException>(() => hold.Cancel(hold.UserId, LifecycleTestData.At(hold.ExpiresAt)));
+        Assert.Throws<DomainRuleException>(() => hold.Cancel(hold.UserId, LifecycleTestData.At(hold.ExpiresAt)));
         hold.Expire(LifecycleTestData.At(hold.ExpiresAt));
         Assert.Equal(SeatHoldStatus.Expired, hold.Status);
     }
 
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Cancel_EnforcesExpiryWithoutChangingPricesOrItems(int ticksFromExpiry)
+    {
+        var hold = LifecycleTestData.Hold(0.01m, 19.99m);
+        var prices = hold.Items.Select(item => item.PriceSnapshot).ToArray();
+        var deadline = hold.ExpiresAt;
+        var clock = LifecycleTestData.At(deadline.AddTicks(ticksFromExpiry));
+
+        if (ticksFromExpiry < 0)
+        {
+            hold.Cancel(hold.UserId, clock);
+            Assert.Equal(SeatHoldStatus.Cancelled, hold.Status);
+        }
+        else
+        {
+            Assert.Equal(DomainError.HoldExpired,
+                Assert.Throws<DomainRuleException>(() => hold.Cancel(hold.UserId, clock)).Error);
+            Assert.Equal(SeatHoldStatus.Active, hold.Status);
+        }
+
+        Assert.Equal(deadline, hold.ExpiresAt);
+        Assert.Equal(new Money(20m, "UAH"), hold.TotalAmount);
+        Assert.Equal(prices, hold.Items.Select(item => item.PriceSnapshot));
+    }
+
     [Fact]
-    public void Hold_WhenItemsAreEmptyForeignNullOrDuplicated_Rejects()
+    public void Hold_WhenSeatsAreEmptyForeignNullOrDuplicated_Rejects()
     {
         var id = Guid.NewGuid();
-        var seatId = Guid.NewGuid();
-        var item = new SeatHoldItem(id, seatId, 1m);
-        var foreign = new SeatHoldItem(Guid.NewGuid(), seatId, 1m);
+        var sessionId = Guid.NewGuid();
+        var seat = LifecycleTestData.Seat(sessionId, 1m);
+        var foreign = LifecycleTestData.Seat(Guid.NewGuid(), 1m);
 
-        SeatHold Create(IEnumerable<SeatHoldItem> items) => new(id, Guid.NewGuid(), Guid.NewGuid(),
-            LifecycleTestData.Now.AddMinutes(10), items, LifecycleTestData.Clock);
+        SeatHold Create(IEnumerable<SessionSeat> seats) => new(id, sessionId, Guid.NewGuid(), LifecycleTestData.Now.AddMinutes(10), seats, LifecycleTestData.Clock, LifecycleTestData.TimingPolicy);
 
         Assert.Throws<ArgumentException>(() => Create([]));
         Assert.Throws<ArgumentException>(() => Create([foreign]));
         Assert.Throws<ArgumentException>(() => Create([null!]));
-        Assert.Throws<ArgumentException>(() => Create([item, item]));
+        Assert.Throws<ArgumentException>(() => Create([seat, seat]));
         Assert.Throws<ArgumentNullException>(() => Create(null!));
     }
 
@@ -132,15 +164,14 @@ public class SeatHoldTests
     public void Hold_WhenExpirationIsNotFuture_Rejects(int minutes)
     {
         var id = Guid.NewGuid();
-        Assert.Throws<ArgumentOutOfRangeException>(() => new SeatHold(id, Guid.NewGuid(), Guid.NewGuid(),
-            LifecycleTestData.Now.AddMinutes(minutes), [new SeatHoldItem(id, Guid.NewGuid(), 1m)], LifecycleTestData.Clock));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new SeatHold(id, Guid.NewGuid(), Guid.NewGuid(), LifecycleTestData.Now.AddMinutes(minutes), [], LifecycleTestData.Clock, LifecycleTestData.TimingPolicy));
     }
 
     [Fact]
-    public void HoldItem_WhenPriceIsNegativeOrIdentityIsEmpty_Rejects()
+    public void HoldItem_WhenSnapshotIsMissingOrIdentityIsEmpty_Rejects()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new SeatHoldItem(Guid.NewGuid(), Guid.NewGuid(), -0.01m));
-        Assert.Throws<ArgumentException>(() => new SeatHoldItem(Guid.Empty, Guid.NewGuid(), 1m));
-        Assert.Throws<ArgumentException>(() => new SeatHoldItem(Guid.NewGuid(), Guid.Empty, 1m));
+        Assert.Throws<ArgumentNullException>(() => new SeatHoldItem(Guid.NewGuid(), Guid.NewGuid(), null!));
+        Assert.Throws<ArgumentException>(() => new SeatHoldItem(Guid.Empty, Guid.NewGuid(), LifecycleTestData.Price(1m)));
+        Assert.Throws<ArgumentException>(() => new SeatHoldItem(Guid.NewGuid(), Guid.Empty, LifecycleTestData.Price(1m)));
     }
 }

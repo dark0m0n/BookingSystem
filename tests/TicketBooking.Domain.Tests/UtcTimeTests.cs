@@ -30,17 +30,17 @@ public class UtcTimeTests
         var clock = LifecycleTestData.Clock;
         var id = Guid.NewGuid();
         var deadline = LifecycleTestData.Now.AddMinutes(10).ToOffset(TimeSpan.FromHours(2));
-        var hold = new SeatHold(id, Guid.NewGuid(), Guid.NewGuid(), deadline,
-            [new SeatHoldItem(id, Guid.NewGuid(), 10m)], clock);
+        var sessionId = Guid.NewGuid();
+        var hold = new SeatHold(id, sessionId, Guid.NewGuid(), deadline, [LifecycleTestData.Seat(sessionId, 10m)], clock, LifecycleTestData.TimingPolicy);
 
         Assert.Equal(TimeSpan.Zero, hold.ExpiresAt.Offset);
         Assert.Equal(deadline, hold.ExpiresAt);
         clock.Advance(TimeSpan.FromMinutes(10).Subtract(TimeSpan.FromTicks(1)));
         hold.EnsureCanConvert(hold.UserId, clock);
-        Assert.Throws<InvalidOperationException>(() => hold.Expire(clock));
+        Assert.Throws<DomainRuleException>(() => hold.Expire(clock));
         clock.Advance(TimeSpan.FromTicks(1));
-        Assert.Throws<InvalidOperationException>(() => hold.Convert(hold.UserId, clock));
-        Assert.Throws<InvalidOperationException>(() => hold.Cancel(hold.UserId, clock));
+        Assert.Throws<DomainRuleException>(() => hold.Convert(hold.UserId, clock));
+        Assert.Throws<DomainRuleException>(() => hold.Cancel(hold.UserId, clock));
         hold.Expire(clock);
         Assert.Equal(SeatHoldStatus.Expired, hold.Status);
     }
@@ -52,7 +52,7 @@ public class UtcTimeTests
         var instant = hold.ExpiresAt.AddTicks(-1);
         var clock = new AdvancingTimeProvider(instant);
 
-        var booking = BookingEntity.CreateFromHold(Guid.NewGuid(), hold, hold.UserId, "BK-UTC", clock);
+        var booking = BookingEntity.CreateFromHold(Guid.NewGuid(), hold, hold.UserId, "BK-UTC", clock, LifecycleTestData.SessionStartsAt, LifecycleTestData.TimingPolicy);
 
         Assert.Equal(1, clock.Reads);
         Assert.Equal(instant, booking.CreatedAt);
@@ -65,15 +65,15 @@ public class UtcTimeTests
         var clock = LifecycleTestData.Clock;
         var hold = LifecycleTestData.Hold();
         clock.Advance(TimeSpan.FromMinutes(1));
-        var booking = BookingEntity.CreateFromHold(Guid.NewGuid(), hold, hold.UserId, "BK-UTC", clock);
-        var deadline = LifecycleTestData.Now.AddMinutes(5).ToOffset(TimeSpan.FromHours(-5));
+        var booking = BookingEntity.CreateFromHold(Guid.NewGuid(), hold, hold.UserId, "BK-UTC", clock, LifecycleTestData.SessionStartsAt, LifecycleTestData.TimingPolicy);
+        var deadline = booking.PaymentDeadline.ToOffset(TimeSpan.FromHours(-5));
 
         Assert.Equal(LifecycleTestData.Now.AddMinutes(1), booking.CreatedAt);
         Assert.Equal(TimeSpan.Zero, booking.CreatedAt.Offset);
-        clock.Advance(TimeSpan.FromMinutes(4).Subtract(TimeSpan.FromTicks(1)));
-        Assert.Throws<InvalidOperationException>(() => booking.Expire(clock, deadline));
+        clock.Advance((deadline - clock.GetUtcNow()).Subtract(TimeSpan.FromTicks(1)));
+        Assert.Throws<DomainRuleException>(() => booking.Expire(clock));
         clock.Advance(TimeSpan.FromTicks(1));
-        booking.Expire(clock, deadline);
+        booking.Expire(clock);
         Assert.Equal(BookingStatus.Expired, booking.Status);
     }
 
@@ -87,10 +87,10 @@ public class UtcTimeTests
         var deadline = LifecycleTestData.Now.AddHours(1).ToOffset(TimeSpan.FromHours(-5));
         clock.Advance(TimeSpan.FromHours(1).Subtract(TimeSpan.FromTicks(1)));
 
-        before.Cancel(before.UserId, clock, sessionStart, deadline);
+        before.Cancel(before.UserId, clock);
         Assert.Equal(BookingStatus.Cancelled, before.Status);
         clock.Advance(TimeSpan.FromTicks(1));
-        Assert.Throws<InvalidOperationException>(() => atDeadline.Cancel(atDeadline.UserId, clock, sessionStart, deadline));
+        Assert.Throws<DomainRuleException>(() => atDeadline.Cancel(atDeadline.UserId, clock));
         Assert.Equal(BookingStatus.PendingPayment, atDeadline.Status);
     }
 
@@ -101,16 +101,15 @@ public class UtcTimeTests
         var booking = LifecycleTestData.Booking();
         var deadline = LifecycleTestData.Now.AddHours(1);
 
-        Assert.Throws<ArgumentNullException>(() => new SeatHold(hold.Id, hold.SessionId, hold.UserId,
-            hold.ExpiresAt, hold.Items, null!));
+        Assert.Throws<ArgumentNullException>(() => new SeatHold(hold.Id, hold.SessionId, hold.UserId, hold.ExpiresAt, [], null!, LifecycleTestData.TimingPolicy));
         Assert.Throws<ArgumentNullException>(() => hold.EnsureCanConvert(hold.UserId, null!));
         Assert.Throws<ArgumentNullException>(() => hold.Convert(hold.UserId, null!));
         Assert.Throws<ArgumentNullException>(() => hold.Cancel(hold.UserId, null!));
         Assert.Throws<ArgumentNullException>(() => hold.Expire(null!));
-        Assert.Throws<ArgumentNullException>(() => BookingEntity.CreateFromHold(Guid.NewGuid(), hold,
-            hold.UserId, "BK-UTC", null!));
-        Assert.Throws<ArgumentNullException>(() => booking.Cancel(booking.UserId, null!, deadline, deadline));
-        Assert.Throws<ArgumentNullException>(() => booking.Expire(null!, deadline));
+        Assert.Throws<ArgumentNullException>(() => BookingEntity.CreateFromHold(Guid.NewGuid(), hold, hold.UserId, "BK-UTC", null!, LifecycleTestData.SessionStartsAt, LifecycleTestData.TimingPolicy));
+        Assert.Throws<ArgumentNullException>(() => booking.Cancel(booking.UserId, null!));
+        Assert.Throws<ArgumentNullException>(() => booking.Expire(null!));
+        Assert.Throws<ArgumentNullException>(() => booking.Confirm(null!));
         Assert.Equal(SeatHoldStatus.Active, hold.Status);
         Assert.Equal(BookingStatus.PendingPayment, booking.Status);
     }

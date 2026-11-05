@@ -2,6 +2,11 @@ namespace TicketBooking.Domain.Catalogue;
 
 public sealed class Event
 {
+    // Used by persistence; application callers must use the validated creation API.
+    private Event()
+    {
+    }
+
     public Event(
         Guid id,
         string title,
@@ -26,10 +31,10 @@ public sealed class Event
         Status = DomainGuard.Defined(status, nameof(status));
     }
 
-    public Guid Id { get; }
-    public string Title { get; }
-    public string Description { get; }
-    public TimeSpan Duration { get; }
-    public int AgeRating { get; }
-    public EventStatus Status { get; }
+    public Guid Id { get; private set; }
+    public string Title { get; private set; } = null!;
+    public string Description { get; private set; } = null!;
+    public TimeSpan Duration { get; private set; }
+    public int AgeRating { get; private set; }
+    public EventStatus Status { get; private set; }
 }

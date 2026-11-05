@@ -1,0 +1,13 @@
+# Backend structure
+
+[BookingTimingOptions](../../../src/TicketBooking.Api/Configuration/BookingTimingOptions.cs) supplies mutable binding-only TimeSpan defaults. [AddBookingTiming](../../../src/TicketBooking.Api/Configuration/BookingTimingConfiguration.cs) binds once, constructs BookingTimingPolicy to validate, and registers the immutable instance before the API builds. No options reload subscription exists.
+
+[BookingTimingPolicy](../../../src/TicketBooking.Domain/BookingTimingPolicy.cs) validates positive hold/payment windows and nonnegative cancellation lead time. Deadline methods normalize UTC, reject creation at/after session start, and cap hold/payment windows before adding to avoid overflow for large positive durations. Cancellation subtraction rejects results outside the CLR date range.
+
+SeatHold construction now requires sessionStartsAt and timingPolicy rather than an arbitrary expiry. Booking.CreateFromHold additionally requires those inputs, captures SessionStartsAt/PaymentDeadline/CancellationDeadline, and shares one clock reading with hold validation. Confirm/Cancel/Expire accept only their required identity/clock inputs, never caller-selected deadline overrides. Payment.CreateForBooking now takes TimeProvider and checks the booking deadline.
+
+[BookingTimingPolicyTests](../../../tests/TicketBooking.Domain.Tests/BookingTimingPolicyTests.cs) tests policy calculations, boundaries, caps, unchanged snapshots, and zero cancellation lead. [BookingTimingConfigurationTests](../../../tests/TicketBooking.IntegrationTests/BookingTimingConfigurationTests.cs) tests actual binding/DI registration and rejection paths with in-memory configuration; it does not start Program.cs or access PostgreSQL. Existing lifecycle/UTC/Money tests use explicit policy fixtures.
+
+No expiration worker, provider callback adapter, authentication endpoint, or transaction coordinator is added. The [persistence layer](../local-persistence/FEATURE.md) now maps entities/deadlines and provides the schema migration. Existing API connection/JWT requirements remain unchanged.
+
+[DeadlineInteractionTests](../../../tests/TicketBooking.Domain.Tests/DeadlineInteractionTests.cs) exercises actual hold/booking operations one tick before, at and after session-start-capped deadlines. It also verifies conversion just before hold expiry starts the booking window at creation, retries do not extend the payment cutoff, and a late successful payment cannot confirm an expired booking. BookingTests covers cancellation boundaries for both PendingPayment and Confirmed bookings; SeatHoldTests covers cancellation at each expiry edge. These test domain guards only, not allocation release or compensation workflows.

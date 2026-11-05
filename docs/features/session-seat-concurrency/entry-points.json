@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "feature": "session-seat-concurrency",
+  "status": "partial",
+  "entry_points": [
+    {
+      "id": "tracked-save",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/TicketBookingDbContext.cs",
+      "symbol": "private void AdvanceSessionSeatVersions(",
+      "description": "Advances tracked row versions from original + 1 for both save paths."
+    },
+    {
+      "id": "token-mapping",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Configurations/SessionSeatConfiguration.cs",
+      "symbol": "builder.Property(seat => seat.Version).IsConcurrencyToken()",
+      "description": "Maps the existing Version as an application-managed concurrency token."
+    },
+    {
+      "id": "allocation-hold",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/SessionSeatAllocationWriter.cs",
+      "symbol": "public Task<long> HoldAsync(",
+      "description": "Fences Available-to-Held allocation."
+    },
+    {
+      "id": "allocation-transfer",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/SessionSeatAllocationWriter.cs",
+      "symbol": "public Task<long> TransferToBookingAsync(",
+      "description": "Fences Held-to-Held ownership transfer and advances its token."
+    },
+    {
+      "id": "allocation-confirm",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/SessionSeatAllocationWriter.cs",
+      "symbol": "public Task<long> ConfirmAsync(",
+      "description": "Fences Held-to-Booked inventory confirmation."
+    },
+    {
+      "id": "allocation-release",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/SessionSeatAllocationWriter.cs",
+      "symbol": "public Task<long> ReleaseAsync(",
+      "description": "Fences release from an allocated status to available/unavailable."
+    },
+    {
+      "id": "concurrency-migration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261105144851_AddSessionSeatOptimisticConcurrency.cs",
+      "symbol": "AddSessionSeatOptimisticConcurrency",
+      "description": "Adds the nonnegative version constraint and captures metadata in the snapshot."
+    }
+  ],
+  "unresolved": [
+    "Durable allocation ownership/claim-token correlation and multi-aggregate hold/booking workflows remain unimplemented.",
+    "There are no HTTP conflict handlers, expiry workers, or payment/seat transaction coordinators."
+  ]
+}

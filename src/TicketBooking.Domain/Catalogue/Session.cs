@@ -2,6 +2,11 @@ namespace TicketBooking.Domain.Catalogue;
 
 public sealed class Session
 {
+    // Used by persistence; application callers must use the validated creation API.
+    private Session()
+    {
+    }
+
     public Session(
         Guid id,
         Guid eventId,
@@ -23,10 +28,10 @@ public sealed class Session
         Status = DomainGuard.Defined(status, nameof(status));
     }
 
-    public Guid Id { get; }
-    public Guid EventId { get; }
-    public Guid AuditoriumId { get; }
-    public DateTimeOffset StartsAt { get; }
-    public DateTimeOffset EndsAt { get; }
-    public SessionStatus Status { get; }
+    public Guid Id { get; private set; }
+    public Guid EventId { get; private set; }
+    public Guid AuditoriumId { get; private set; }
+    public DateTimeOffset StartsAt { get; private set; }
+    public DateTimeOffset EndsAt { get; private set; }
+    public SessionStatus Status { get; private set; }
 }

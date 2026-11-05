@@ -18,4 +18,9 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../../src/TicketBooking.Api/TicketBooking.Api.csproj" />
+  </ItemGroup>
+
 </Project>

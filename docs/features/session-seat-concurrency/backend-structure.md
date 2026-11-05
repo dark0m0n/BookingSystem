@@ -1,0 +1,11 @@
+# Backend structure
+
+[SessionSeatConfiguration](../../../src/TicketBooking.Infrastructure/Persistence/Configurations/SessionSeatConfiguration.cs) marks Version IsConcurrencyToken/ValueGeneratedNever and adds CK_SessionSeats_Version_NonNegative. This uses the existing bigint column rather than PostgreSQL xmin.
+
+[TicketBookingDbContext](../../../src/TicketBooking.Infrastructure/Persistence/TicketBookingDbContext.cs) overrides SaveChanges(bool) and SaveChangesAsync(bool, CancellationToken). Both call AdvanceSessionSeatVersions after detecting changes. All Modified SessionSeat entries advance from original + 1; adds retain the supplied/default initial version. EF automatically includes the token in tracked update/delete predicates. No generated-value trigger or retry policy is used.
+
+[SessionSeatAllocationWriter](../../../src/TicketBooking.Infrastructure/Persistence/SessionSeatAllocationWriter.cs) exposes HoldAsync, TransferToBookingAsync, ConfirmAsync, and ReleaseAsync. A private WriteAsync uses ExecuteUpdateAsync with explicit ID/version/status conditions and explicit next version; EF does not add concurrency checks to set-based writes on its own. Negative/max-overflow tokens and invalid release state pairs reject before SQL.
+
+Tests: [SessionSeatConcurrencyTests](../../../tests/TicketBooking.IntegrationTests/SessionSeatConcurrencyTests.cs) creates a private migrated schema per test and uses separate DbContexts/connections for races; [SessionSeatAllocationWriterTests](../../../tests/TicketBooking.IntegrationTests/SessionSeatAllocationWriterTests.cs) validates rejected inputs without SQL; [PersistenceModelTests](../../../tests/TicketBooking.IntegrationTests/PersistenceModelTests.cs) checks token metadata. Twenty parallel claims produce one winner and nineteen concurrency conflicts.
+
+Production ownership-changing SQL currently exists only in the allocation writer plus EF's tracked update/delete path. New code must use those paths. ExecuteUpdate/ExecuteDelete, raw SQL, or external database clients bypass tracked-save stamping and need an equivalent expected-version predicate/checked increment; they are not protected automatically. There are no business handlers yet. API middleware translates allocation conflicts using the [error contract](../api-diagnostics/error-codes.md).

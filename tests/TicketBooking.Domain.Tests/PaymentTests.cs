@@ -8,11 +8,11 @@ public class PaymentTests
     [Fact]
     public void Payment_StartsPendingWithoutAProviderReference()
     {
-        var bookingId = Guid.NewGuid();
-        var payment = new PaymentEntity(Guid.NewGuid(), bookingId, 12.50m, "request-1");
+        var booking = LifecycleTestData.Booking(12.50m);
+        var payment = PaymentEntity.CreateForBooking(Guid.NewGuid(), booking, "request-1", LifecycleTestData.Clock);
 
-        Assert.Equal(bookingId, payment.BookingId);
-        Assert.Equal(12.50m, payment.Amount);
+        Assert.Equal(booking.Id, payment.BookingId);
+        Assert.Equal(LifecycleTestData.Price(12.50m), payment.Amount);
         Assert.Equal("request-1", payment.IdempotencyKey);
         Assert.Equal(PaymentStatus.Pending, payment.Status);
         Assert.Null(payment.ProviderReference);
@@ -41,7 +41,8 @@ public class PaymentTests
         }
         else
         {
-            Assert.Throws<InvalidOperationException>(() => Complete(payment, to, "provider-1"));
+            Assert.Equal(DomainError.PaymentAlreadyProcessed,
+                Assert.Throws<DomainRuleException>(() => Complete(payment, to, "provider-1")).Error);
             Assert.Equal(from, payment.Status);
             Assert.Equal("provider-1", payment.ProviderReference);
         }
@@ -55,8 +56,8 @@ public class PaymentTests
         payment.RecordProviderReference("provider-1");
 
         Assert.Equal(PaymentStatus.Pending, payment.Status);
-        Assert.Throws<InvalidOperationException>(() => payment.RecordProviderReference("provider-2"));
-        Assert.Throws<InvalidOperationException>(() => payment.Succeed("provider-2"));
+        Assert.Throws<DomainRuleException>(() => payment.RecordProviderReference("provider-2"));
+        Assert.Throws<DomainRuleException>(() => payment.Succeed("provider-2"));
         Assert.Equal(PaymentStatus.Pending, payment.Status);
         payment.Succeed("provider-1");
         Assert.Equal(PaymentStatus.Succeeded, payment.Status);
@@ -70,8 +71,10 @@ public class PaymentTests
         var payment = Create();
         Complete(payment, status, "provider-1");
 
-        Assert.Throws<InvalidOperationException>(() => Complete(payment, status, "provider-2"));
-        Assert.Throws<InvalidOperationException>(() => payment.RecordProviderReference("provider-1"));
+        Assert.Equal(DomainError.PaymentReferenceMismatch,
+            Assert.Throws<DomainRuleException>(() => Complete(payment, status, "provider-2")).Error);
+        Assert.Equal(DomainError.PaymentAlreadyProcessed,
+            Assert.Throws<DomainRuleException>(() => payment.RecordProviderReference("provider-1")).Error);
         Assert.Equal("provider-1", payment.ProviderReference);
         Assert.Equal(status, payment.Status);
     }
@@ -97,19 +100,20 @@ public class PaymentTests
     [InlineData(null)]
     public void Payment_WhenIdempotencyKeyIsMissing_Rejects(string? key)
     {
-        Assert.ThrowsAny<ArgumentException>(() => new PaymentEntity(Guid.NewGuid(), Guid.NewGuid(), 1m, key!));
+        Assert.ThrowsAny<ArgumentException>(() => PaymentEntity.CreateForBooking(Guid.NewGuid(), LifecycleTestData.Booking(), key!, LifecycleTestData.Clock));
     }
 
     [Fact]
-    public void Payment_ValidatesIdentityAndAmount()
+    public void Payment_ValidatesIdentityAndBooking()
     {
-        Assert.Throws<ArgumentException>(() => new PaymentEntity(Guid.Empty, Guid.NewGuid(), 1m, "key"));
-        Assert.Throws<ArgumentException>(() => new PaymentEntity(Guid.NewGuid(), Guid.Empty, 1m, "key"));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new PaymentEntity(Guid.NewGuid(), Guid.NewGuid(), -0.01m, "key"));
-        Assert.Equal(0m, new PaymentEntity(Guid.NewGuid(), Guid.NewGuid(), 0m, "free-request").Amount);
+        var booking = LifecycleTestData.Booking(0m);
+        Assert.Throws<ArgumentException>(() => PaymentEntity.CreateForBooking(Guid.Empty, booking, "key", LifecycleTestData.Clock));
+        Assert.Throws<ArgumentNullException>(() => PaymentEntity.CreateForBooking(Guid.NewGuid(), null!, "key", LifecycleTestData.Clock));
+        Assert.Equal(LifecycleTestData.Price(0m), PaymentEntity.CreateForBooking(Guid.NewGuid(), booking, "free-request", LifecycleTestData.Clock).Amount);
     }
 
-    private static PaymentEntity Create() => new(Guid.NewGuid(), Guid.NewGuid(), 12.50m, "request-1");
+    private static PaymentEntity Create() =>
+        PaymentEntity.CreateForBooking(Guid.NewGuid(), LifecycleTestData.Booking(12.50m), "request-1", LifecycleTestData.Clock);
 
     private static void Complete(PaymentEntity payment, PaymentStatus result, string reference)
     {

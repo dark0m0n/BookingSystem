@@ -13,6 +13,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: ticketbooking_tests
+          POSTGRES_USER: ticketbooking_tests
+          POSTGRES_PASSWORD: local-test-only
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U ticketbooking_tests -d ticketbooking_tests"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -29,4 +44,6 @@ jobs:
         run: dotnet build TicketBooking.slnx --configuration Release --no-restore
 
       - name: Run tests
+        env:
+          TICKETBOOKING_TEST_CONNECTION_STRING: Host=127.0.0.1;Port=${{ job.services.postgres.ports[5432] }};Database=ticketbooking_tests;Username=ticketbooking_tests;Password=local-test-only
         run: dotnet test TicketBooking.slnx --configuration Release --no-build --no-restore

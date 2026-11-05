@@ -9,7 +9,7 @@
       "kind": "service",
       "path": "src/TicketBooking.Domain/Reservation/SeatHold.cs",
       "symbol": "public SeatHold(",
-      "description": "Constructs an Active hold with defensive item snapshots and a future expiry."
+      "description": "Constructs an Active hold with snapshots and calculated Money total from selected session inventory."
     },
     {
       "id": "hold-check",
@@ -57,7 +57,7 @@
       "kind": "service",
       "path": "src/TicketBooking.Domain/Booking/Booking.cs",
       "symbol": "public void Confirm(",
-      "description": "Confirms a pending booking; payment/seat coordination remains Application responsibility."
+      "description": "Confirms a pending booking strictly before its captured payment deadline; payment/seat validation remains Application responsibility."
     },
     {
       "id": "booking-cancel",
@@ -65,7 +65,7 @@
       "kind": "service",
       "path": "src/TicketBooking.Domain/Booking/Booking.cs",
       "symbol": "public void Cancel(",
-      "description": "Checks owner, cancellable state, session start, and supplied cancellation deadline."
+      "description": "Checks owner, cancellable state, and captured policy-derived cancellation deadline."
     },
     {
       "id": "booking-expire",
@@ -73,15 +73,15 @@
       "kind": "service",
       "path": "src/TicketBooking.Domain/Booking/Booking.cs",
       "symbol": "public void Expire(",
-      "description": "Expires a pending booking at a reached caller-supplied payment deadline."
+      "description": "Expires a pending booking at or after its captured payment deadline."
     },
     {
       "id": "payment-create",
       "app": "TicketBooking.Domain.Payment",
       "kind": "service",
       "path": "src/TicketBooking.Domain/Payment/Payment.cs",
-      "symbol": "public Payment(",
-      "description": "Constructs a Pending payment with immutable amount and idempotency key."
+      "symbol": "public static Payment CreateForBooking(",
+      "description": "Constructs a Pending payment from a PendingPayment booking, deriving Money amount/currency from its total."
     },
     {
       "id": "payment-reference",
@@ -117,8 +117,9 @@
     }
   ],
   "unresolved": [
-    "Application transactions, EF persistence/concurrency, endpoint authorization, and provider/webhook processing are not implemented.",
-    "Cancellation and payment timeout policies are caller inputs rather than persisted application settings.",
-    "Refund and messaging entities/transitions are deferred to their planned phases."
+    "Application transactions, full allocation transactions, endpoint authorization, and provider/webhook processing are not implemented.",
+    "Refund and messaging entities/transitions are deferred to their planned phases.",
+    "Absolute timing deadlines are mapped; expiration workers and allocation release remain absent.",
+    "Decided post-conversion retention and late-result policy still needs allocation ownership/transfer, atomic expiry/release, and durable reconciliation/compensation; no executable entries exist for those workflows."
   ]
 }

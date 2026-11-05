@@ -2,6 +2,11 @@ namespace TicketBooking.Domain.Venue;
 
 public sealed class Auditorium
 {
+    // Used by persistence; application callers must use the validated creation API.
+    private Auditorium()
+    {
+    }
+
     public Auditorium(Guid id, Guid venueId, string name)
     {
         Id = DomainGuard.Id(id, nameof(id));
@@ -9,7 +14,7 @@ public sealed class Auditorium
         Name = DomainGuard.Text(name, nameof(name));
     }
 
-    public Guid Id { get; }
-    public Guid VenueId { get; }
-    public string Name { get; }
+    public Guid Id { get; private set; }
+    public Guid VenueId { get; private set; }
+    public string Name { get; private set; } = null!;
 }
