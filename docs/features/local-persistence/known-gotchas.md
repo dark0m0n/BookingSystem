@@ -7,4 +7,4 @@
 - **Observed in source:** `dotnet run` alone does not apply migrations. Use the [README startup command](../../../README.md#start-locally), which runs the explicit EF migration step before starting the API. Its API startup project requires both configuration values even for EF tooling; a failed migration stops the chain.
 - **Observed in source:** API liveness does not test database connectivity. Diagnose database availability separately with Compose status/logs or database tools.
 
-Runtime startup, actual credentials, active database schema, data durability, and port availability are Not verified. No business entities, booking persistence, backups, retention policy, or meaningful integration tests are implemented in the inspected scope. These gaps require separate implementation requirements.
+Runtime startup, actual credentials, active database schema, data durability, and port availability are Not verified. No mapped business entities, booking persistence, backups, retention policy, or meaningful integration tests are implemented in the inspected scope. These gaps require separate implementation requirements.

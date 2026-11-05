@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "feature": "venue-catalogue-model",
+  "status": "partial",
+  "entry_points": [
+    {
+      "id": "venue-create",
+      "app": "TicketBooking.Domain.Venue",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Venue/Venue.cs",
+      "symbol": "public Venue(",
+      "description": "Constructs Venue with local validation; no persistence or HTTP handling."
+    },
+    {
+      "id": "auditorium-create",
+      "app": "TicketBooking.Domain.Venue",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Venue/Auditorium.cs",
+      "symbol": "public Auditorium(",
+      "description": "Constructs Auditorium with local validation; no persistence or HTTP handling."
+    },
+    {
+      "id": "seat-create",
+      "app": "TicketBooking.Domain.Venue",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Venue/Seat.cs",
+      "symbol": "public Seat(",
+      "description": "Constructs Seat with local validation; no persistence or HTTP handling."
+    },
+    {
+      "id": "event-create",
+      "app": "TicketBooking.Domain.Catalogue",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Catalogue/Event.cs",
+      "symbol": "public Event(",
+      "description": "Constructs Event with local validation; no persistence or HTTP handling."
+    },
+    {
+      "id": "session-create",
+      "app": "TicketBooking.Domain.Catalogue",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Catalogue/Session.cs",
+      "symbol": "public Session(",
+      "description": "Constructs Session with local validation; no persistence or HTTP handling."
+    },
+    {
+      "id": "session-seat-create",
+      "app": "TicketBooking.Domain.Catalogue",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Catalogue/SessionSeat.cs",
+      "symbol": "public SessionSeat(",
+      "description": "Constructs SessionSeat with local validation; no persistence or HTTP handling."
+    }
+  ],
+  "unresolved": [
+    "No HTTP endpoints, application workflows, or EF mappings exist for these entities.",
+    "State transition rules and concurrency enforcement are not implemented."
+  ]
+}

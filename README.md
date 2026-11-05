@@ -1,5 +1,9 @@
 # Ticket Booking
 
+## Domain organization
+
+The existing Domain project contains seven logical boundaries: **Identity**, **Catalogue**, **Venue**, **Reservation**, **Booking**, **Payment**, and **Notification**. They remain in one assembly within the existing application. See the [domain boundary map](src/TicketBooking.Domain/README.md) for ownership and namespace conventions, and the [feature documentation](docs/features/domain-boundaries/FEATURE.md) for implementation status. Venue and Catalogue now contain the initial [domain entities](docs/features/venue-catalogue-model/FEATURE.md); business workflows and persistence mappings are not implemented yet.
+
 ## Local startup
 
 ### One-time setup

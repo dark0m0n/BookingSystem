@@ -37,7 +37,7 @@
     }
   ],
   "unresolved": [
-    "No business entities, CRUD routes, or persistence workflows exist.",
+    "No mapped business entities, CRUD routes, or persistence workflows exist.",
     "Running database state and applied migrations have not been verified."
   ]
 }

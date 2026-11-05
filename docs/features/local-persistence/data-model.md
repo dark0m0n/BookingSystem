@@ -1,6 +1,6 @@
 # Data model
 
-The application model is empty: no declared entities, fields, relations, constraints, domain status values, or business tables.
+The EF persistence model is empty: no mapped entities, fields, relations, constraints, or business tables. The separate [domain model](../venue-catalogue-model/data-model.md) now declares Venue/Catalogue entities and statuses, but no EF mappings are implemented.
 
 Evidence:
 

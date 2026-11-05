@@ -5,7 +5,7 @@
 `TicketBooking.slnx` groups five projects under `src/`:
 - `TicketBooking.Api`: ASP.NET Core entry point, configuration, OpenAPI, and health endpoint.
 - `TicketBooking.Application`: application logic; references Domain and Contracts.
-- `TicketBooking.Domain`: domain model; keep independent of infrastructure.
+- `TicketBooking.Domain`: domain model organized into Identity, Catalogue, Venue, Reservation, Booking, Payment, and Notification folders. Keep these logical boundaries in the existing assembly and independent of infrastructure; follow `src/TicketBooking.Domain/README.md` for ownership and namespace conventions.
 - `TicketBooking.Contracts`: shared request and response contracts.
 - `TicketBooking.Infrastructure`: EF Core persistence and PostgreSQL migrations under `Persistence/Migrations/`.
 
@@ -30,7 +30,7 @@ Follow `.editorconfig`: UTF-8, LF endings, final newlines, four-space indentatio
 
 ## Testing Guidelines
 
-Tests use xUnit and `coverlet.collector`. Existing tests are empty scaffolds; no coverage threshold is configured. Add meaningful behavior tests to the appropriate project, using descriptive names such as `BookTicket_WhenSoldOut_ReturnsFailure`. Use `dotnet test TicketBooking.slnx --collect:"XPlat Code Coverage"` to collect coverage. Add required project references when implementing the scaffolded test projects.
+Tests use xUnit and `coverlet.collector`. Domain tests cover entity construction and validation; the other test projects remain empty scaffolds. No coverage threshold is configured. Add meaningful behavior tests to the appropriate project, using descriptive names such as `BookTicket_WhenSoldOut_ReturnsFailure`. Use `dotnet test TicketBooking.slnx --collect:"XPlat Code Coverage"` to collect coverage. Add required project references when implementing the scaffolded test projects.
 
 ## Feature Documentation
 
