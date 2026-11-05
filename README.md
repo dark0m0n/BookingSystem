@@ -2,7 +2,9 @@
 
 ## Domain organization
 
-The existing Domain project contains seven logical boundaries: **Identity**, **Catalogue**, **Venue**, **Reservation**, **Booking**, **Payment**, and **Notification**. They remain in one assembly within the existing application. See the [domain boundary map](src/TicketBooking.Domain/README.md) for ownership and namespace conventions, and the [feature documentation](docs/features/domain-boundaries/FEATURE.md) for implementation status. Venue and Catalogue now contain the initial [domain entities](docs/features/venue-catalogue-model/FEATURE.md); business workflows and persistence mappings are not implemented yet.
+The existing Domain project contains seven logical boundaries: **Identity**, **Catalogue**, **Venue**, **Reservation**, **Booking**, **Payment**, and **Notification**. They remain in one assembly within the existing application. See the [domain boundary map](src/TicketBooking.Domain/README.md) for ownership and namespace conventions, and the [feature documentation](docs/features/domain-boundaries/FEATURE.md) for implementation status. Venue and Catalogue contain the initial [domain entities](docs/features/venue-catalogue-model/FEATURE.md). Reservation, Booking, and Payment provide [hold, booking, and payment entities with guarded transitions](docs/features/reservation-booking-payment/FEATURE.md). Application workflows and persistence mappings are not implemented yet; refund and messaging entities are deferred to their planned phases.
+
+Time-sensitive rules use an injectable `TimeProvider` and UTC-normalized `DateTimeOffset` instants. See [time conventions](docs/time-conventions.md) for storage, deadline boundaries, and testing.
 
 ## Local startup
 

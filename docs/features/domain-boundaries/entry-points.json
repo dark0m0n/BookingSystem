@@ -4,7 +4,7 @@
   "status": "implemented",
   "entry_points": [],
   "unresolved": [
-    "The boundary-organization step has no executable entry points; entity constructors are indexed in venue-catalogue-model/entry-points.json.",
-    "Business workflows, integration contracts, and automatic boundary enforcement remain unimplemented."
+    "The boundary-organization step has no executable entry points; entity constructors and transitions are indexed in the model and reservation-booking-payment bundles.",
+    "Application workflows, external integrations, and automatic boundary enforcement remain unimplemented."
   ]
 }

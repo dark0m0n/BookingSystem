@@ -28,9 +28,13 @@ For the complete local startup command, including database readiness and migrati
 
 Follow `.editorconfig`: UTF-8, LF endings, final newlines, four-space indentation for C#, and two spaces for JSON, YAML, and project files. Put C# opening braces on separate lines and sort `System` imports first. Match existing file-scoped namespaces. Use PascalCase for types and methods, camelCase for parameters and locals, and filenames matching their primary types. Nullable reference types and implicit usings are enabled globally.
 
+## Time Conventions
+
+Use UTC `DateTimeOffset` instants, normalized with `ToUniversalTime()`. Inject `TimeProvider` for current time and pass it to expiration/deadline rules; never read static wall clocks in business logic. The API registers `TimeProvider.System`; tests use a controllable clock without sleeps. See `docs/time-conventions.md`.
+
 ## Testing Guidelines
 
-Tests use xUnit and `coverlet.collector`. Domain tests cover entity construction and validation; the other test projects remain empty scaffolds. No coverage threshold is configured. Add meaningful behavior tests to the appropriate project, using descriptive names such as `BookTicket_WhenSoldOut_ReturnsFailure`. Use `dotnet test TicketBooking.slnx --collect:"XPlat Code Coverage"` to collect coverage. Add required project references when implementing the scaffolded test projects.
+Tests use xUnit and `coverlet.collector`. Domain tests cover entity construction, price snapshots, ownership/deadline checks, and hold/booking/payment transitions; the other test projects remain empty scaffolds. No coverage threshold is configured. Add meaningful behavior tests to the appropriate project, using descriptive names such as `BookTicket_WhenSoldOut_ReturnsFailure`. Use `dotnet test TicketBooking.slnx --collect:"XPlat Code Coverage"` to collect coverage. Add required project references when implementing the scaffolded test projects.
 
 ## Feature Documentation
 

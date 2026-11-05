@@ -1,6 +1,6 @@
 # Backend structure
 
-Public sealed classes with constructor validation and get-only properties live under [Venue](../../../src/TicketBooking.Domain/Venue/README.md) and [Catalogue](../../../src/TicketBooking.Domain/Catalogue/README.md). Constructors accept IDs explicitly; no hidden ID generation or clock access occurs. The internal [DomainGuard](../../../src/TicketBooking.Domain/DomainGuard.cs) centralizes nonempty GUID, nonblank string, and defined-enum checks without external dependencies.
+Public sealed classes with constructor validation and get-only properties live under [Venue](../../../src/TicketBooking.Domain/Venue/README.md) and [Catalogue](../../../src/TicketBooking.Domain/Catalogue/README.md). Constructors accept IDs explicitly; no hidden ID generation or clock access occurs. Session start/end inputs are normalized to UTC without changing their instants; see [time conventions](../../time-conventions.md). The internal [DomainGuard](../../../src/TicketBooking.Domain/DomainGuard.cs) centralizes nonempty GUID, nonblank string, and defined-enum checks without external dependencies.
 
 `EventStatus`: Draft (default), Published, Archived. `SessionStatus`: Scheduled (default), Cancelled, Completed. `SeatType`: Standard (default), Premium, Accessible. These values are provisional implementation choices because the request did not specify their vocabularies. `SessionSeatStatus` exactly follows the supplied list.
 

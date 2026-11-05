@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "feature": "reservation-booking-payment",
+  "status": "partial",
+  "entry_points": [
+    {
+      "id": "hold-create",
+      "app": "TicketBooking.Domain.Reservation",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Reservation/SeatHold.cs",
+      "symbol": "public SeatHold(",
+      "description": "Constructs an Active hold with defensive item snapshots and a future expiry."
+    },
+    {
+      "id": "hold-check",
+      "app": "TicketBooking.Domain.Reservation",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Reservation/SeatHold.cs",
+      "symbol": "public void EnsureCanConvert(",
+      "description": "Read-only owner/state/time validation used by booking construction."
+    },
+    {
+      "id": "hold-convert",
+      "app": "TicketBooking.Domain.Reservation",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Reservation/SeatHold.cs",
+      "symbol": "public void Convert(",
+      "description": "Converts a valid owned active hold before expiry."
+    },
+    {
+      "id": "hold-cancel",
+      "app": "TicketBooking.Domain.Reservation",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Reservation/SeatHold.cs",
+      "symbol": "public void Cancel(",
+      "description": "Cancels an owned active hold before expiry."
+    },
+    {
+      "id": "hold-expire",
+      "app": "TicketBooking.Domain.Reservation",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Reservation/SeatHold.cs",
+      "symbol": "public void Expire(",
+      "description": "Expires an active hold at or after its deadline."
+    },
+    {
+      "id": "booking-from-hold",
+      "app": "TicketBooking.Domain.Booking",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Booking/Booking.cs",
+      "symbol": "public static Booking CreateFromHold(",
+      "description": "Constructs a PendingPayment booking from valid hold snapshots without mutating the hold."
+    },
+    {
+      "id": "booking-confirm",
+      "app": "TicketBooking.Domain.Booking",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Booking/Booking.cs",
+      "symbol": "public void Confirm(",
+      "description": "Confirms a pending booking; payment/seat coordination remains Application responsibility."
+    },
+    {
+      "id": "booking-cancel",
+      "app": "TicketBooking.Domain.Booking",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Booking/Booking.cs",
+      "symbol": "public void Cancel(",
+      "description": "Checks owner, cancellable state, session start, and supplied cancellation deadline."
+    },
+    {
+      "id": "booking-expire",
+      "app": "TicketBooking.Domain.Booking",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Booking/Booking.cs",
+      "symbol": "public void Expire(",
+      "description": "Expires a pending booking at a reached caller-supplied payment deadline."
+    },
+    {
+      "id": "payment-create",
+      "app": "TicketBooking.Domain.Payment",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Payment/Payment.cs",
+      "symbol": "public Payment(",
+      "description": "Constructs a Pending payment with immutable amount and idempotency key."
+    },
+    {
+      "id": "payment-reference",
+      "app": "TicketBooking.Domain.Payment",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Payment/Payment.cs",
+      "symbol": "public void RecordProviderReference(",
+      "description": "Correlates a pending provider operation without changing its status."
+    },
+    {
+      "id": "payment-succeed",
+      "app": "TicketBooking.Domain.Payment",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Payment/Payment.cs",
+      "symbol": "public void Succeed(",
+      "description": "Records success or ignores an identical already-succeeded result/reference."
+    },
+    {
+      "id": "payment-fail",
+      "app": "TicketBooking.Domain.Payment",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Payment/Payment.cs",
+      "symbol": "public void Fail(",
+      "description": "Records failure or ignores an identical already-failed result/reference."
+    },
+    {
+      "id": "utc-clock-registration",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Program.cs",
+      "symbol": "builder.Services.AddSingleton<TimeProvider>(TimeProvider.System)",
+      "description": "Registers the injectable system UTC clock for future application handlers."
+    }
+  ],
+  "unresolved": [
+    "Application transactions, EF persistence/concurrency, endpoint authorization, and provider/webhook processing are not implemented.",
+    "Cancellation and payment timeout policies are caller inputs rather than persisted application settings.",
+    "Refund and messaging entities/transitions are deferred to their planned phases."
+  ]
+}

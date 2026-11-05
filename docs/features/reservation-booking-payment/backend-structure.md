@@ -1,0 +1,11 @@
+# Backend structure
+
+[SeatHold](../../../src/TicketBooking.Domain/Reservation/SeatHold.cs) fixes its initial state to Active; its private setter changes only through Convert, Cancel, or Expire. EnsureCanConvert validates a supplied owner ID against one UTC reading from the injected TimeProvider without mutation. EnsureCanConvertAt is internal and lets booking creation reuse that exact reading. Constructor validation rejects empty/null/foreign/duplicate items and copies the input collection.
+
+[Booking](../../../src/TicketBooking.Domain/Booking/Booking.cs) has a private constructor; CreateFromHold is its public factory. It uses the hold's validation and copies immutable BookingItems, then sums snapshots. No price or total setters exist. Confirm, Cancel, and Expire guard the current state; the latter two accept policy inputs. The factory never converts the hold itself.
+
+[Payment](../../../src/TicketBooking.Domain/Payment/Payment.cs) starts Pending. Succeed/Fail share an internal completion guard. ProviderReference is nullable initially, can be recorded while Pending, and cannot be replaced. Repeated same-result/same-reference completion is a no-op; a conflicting terminal result throws. IdempotencyKey and Amount are immutable.
+
+Tests: [SeatHoldTests](../../../tests/TicketBooking.Domain.Tests/SeatHoldTests.cs), [BookingTests](../../../tests/TicketBooking.Domain.Tests/BookingTests.cs), and [PaymentTests](../../../tests/TicketBooking.Domain.Tests/PaymentTests.cs). Tests cover deadline edges, owner mismatch, terminal states, duplicate items, total overflow, payment replays, and conflicting provider outcomes/references. [UtcTimeTests](../../../tests/TicketBooking.Domain.Tests/UtcTimeTests.cs) adds mixed-offset normalization, advancing clocks, single-read factory behavior, and null-clock checks.
+
+No HTTP routes, validation DTOs, JWT policies, repositories, EF mappings/migrations, workers, locks, transactions, webhook checks, or payment provider adapters are implemented. TimeProvider is passed explicitly to time-sensitive operations; API registers TimeProvider.System. No entity stores a clock, and no business rule reads a static wall clock. The built-in clock abstraction adds no dependency package or external I/O. See [time conventions](../../time-conventions.md). No new environment configuration is required.

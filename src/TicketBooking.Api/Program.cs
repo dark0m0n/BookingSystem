@@ -4,6 +4,8 @@ using TicketBooking.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+
 builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks();
 builder.Services.AddProblemDetails(options =>

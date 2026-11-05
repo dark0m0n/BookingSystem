@@ -1,8 +1,8 @@
 # Domain boundaries
 
-Status: **implemented** for repository organization; business behavior is absent.
+Status: **implemented** for repository organization; application orchestration is absent; local domain behavior is documented in the model/lifecycle bundles.
 
-Working tree inspected, based on commit `9f0a19d`. The change organizes the existing Domain project into Identity, Catalogue, Venue, Reservation, Booking, Payment, and Notification folders. Each contains ownership guidance; Venue and Catalogue now also contain the [initial domain entities](../venue-catalogue-model/FEATURE.md). The actor is a contributor deciding where to place domain logic; the outcome is clear responsibility within the existing application.
+Working tree inspected, based on commit `9f0a19d`. The change organizes the existing Domain project into Identity, Catalogue, Venue, Reservation, Booking, Payment, and Notification folders. Each contains ownership guidance; Venue and Catalogue contain the [initial domain entities](../venue-catalogue-model/FEATURE.md), while Reservation, Booking, and Payment contain [lifecycle entities](../reservation-booking-payment/FEATURE.md). The actor is a contributor deciding where to place domain logic; the outcome is clear responsibility within the existing application.
 
 Evidence: [domain map](../../../src/TicketBooking.Domain/README.md), its linked boundary guides, and [Domain project](../../../src/TicketBooking.Domain/TicketBooking.Domain.csproj). The boundary organization adds no services, projects, package references, endpoints, or migrations. Subsequent entity implementation is documented in the linked model bundle.
 

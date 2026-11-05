@@ -8,7 +8,7 @@ All properties are nonnullable and get-only. IDs and foreign IDs are Guid, must 
 | [Auditorium](../../../src/TicketBooking.Domain/Venue/Auditorium.cs) | VenueId: Guid; Name: string | Name nonblank. |
 | [Seat](../../../src/TicketBooking.Domain/Venue/Seat.cs) | AuditoriumId: Guid; Row: string; Number: int; Type: SeatType | Row nonblank (supports letter/numeric labels); Number > 0; Type defaults Standard. |
 | [Event](../../../src/TicketBooking.Domain/Catalogue/Event.cs) | Title: string; Description: string; Duration: TimeSpan; AgeRating: int; Status: EventStatus | Title nonblank; description may be empty; duration > 0; age >= 0; status defaults Draft. |
-| [Session](../../../src/TicketBooking.Domain/Catalogue/Session.cs) | EventId: Guid; AuditoriumId: Guid; StartsAt/EndsAt: DateTimeOffset; Status: SessionStatus | EndsAt > StartsAt by instant; status defaults Scheduled. |
+| [Session](../../../src/TicketBooking.Domain/Catalogue/Session.cs) | EventId: Guid; AuditoriumId: Guid; StartsAt/EndsAt: DateTimeOffset; Status: SessionStatus | EndsAt > StartsAt by instant; both values normalized to UTC offset 00:00; status defaults Scheduled. |
 | [SessionSeat](../../../src/TicketBooking.Domain/Catalogue/SessionSeat.cs) | SessionId: Guid; SeatId: Guid; Price: decimal; Status: SessionSeatStatus; Version: long | Price >= 0 (free seats allowed); Version >= 0, defaults 0; status defaults Available. |
 
 Enums have explicit integer values starting at zero:

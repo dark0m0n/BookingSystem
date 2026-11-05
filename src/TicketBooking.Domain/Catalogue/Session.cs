@@ -18,8 +18,8 @@ public sealed class Session
         Id = DomainGuard.Id(id, nameof(id));
         EventId = DomainGuard.Id(eventId, nameof(eventId));
         AuditoriumId = DomainGuard.Id(auditoriumId, nameof(auditoriumId));
-        StartsAt = startsAt;
-        EndsAt = endsAt;
+        StartsAt = startsAt.ToUniversalTime();
+        EndsAt = endsAt.ToUniversalTime();
         Status = DomainGuard.Defined(status, nameof(status));
     }
 
