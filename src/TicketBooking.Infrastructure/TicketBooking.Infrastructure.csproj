@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\TicketBooking.Application\TicketBooking.Application.csproj" />
+    <ProjectReference Include="..\TicketBooking.Domain\TicketBooking.Domain.csproj" />
+    <ProjectReference Include="..\TicketBooking.Contracts\TicketBooking.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.*" />
+  </ItemGroup>
+
+  <PropertyGroup>
+  </PropertyGroup>
+
+</Project>

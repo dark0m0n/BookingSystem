@@ -1,0 +1,46 @@
+# .NET build and publish output
+**/[Bb]in/
+**/[Oo]bj/
+/artifacts/
+*.nupkg
+*.snupkg
+*.binlog
+
+# Test results and coverage reports
+**/TestResults/
+**/coverage/
+**/coverage-report/
+*.coverage
+*.coveragexml
+
+# Local IDE settings and caches
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+
+# Local environment variables and secret overrides
+.env
+.env.*
+!.env.example
+!.env.*.example
+**/appsettings.Local.json
+**/appsettings.*.Local.json
+*.pfx
+*.p12
+*.key
+
+# Application logs
+**/logs/
+*.log
+
+# OS and editor temporary files
+.DS_Store
+Thumbs.db
+Desktop.ini
+*~
+*.swp
+*.swo
