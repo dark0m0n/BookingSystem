@@ -50,10 +50,315 @@
       "path": "src/TicketBooking.Domain/Catalogue/SessionSeat.cs",
       "symbol": "public SessionSeat(",
       "description": "Constructs SessionSeat with local validation; no persistence or HTTP handling."
+    },
+    {
+      "id": "admin-createvenue",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Administration/AdminCatalogueEndpoints.cs",
+      "symbol": "group.MapPost(\"/venues\"",
+      "method": "POST",
+      "description": "POST /api/admin/venues; Admin-protected group prefix /api/admin plus verified registration suffix."
+    },
+    {
+      "id": "admin-listvenues",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Administration/AdminCatalogueEndpoints.cs",
+      "symbol": "group.MapGet(\"/venues\"",
+      "method": "GET",
+      "description": "GET /api/admin/venues; Admin-protected group prefix /api/admin plus verified registration suffix."
+    },
+    {
+      "id": "admin-getvenue",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Administration/AdminCatalogueEndpoints.cs",
+      "symbol": "group.MapGet(\"/venues/{id:guid}\"",
+      "method": "GET",
+      "description": "GET /api/admin/venues/{id:guid}; Admin-protected group prefix /api/admin plus verified registration suffix."
+    },
+    {
+      "id": "admin-createauditorium",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Administration/AdminCatalogueEndpoints.cs",
+      "symbol": "group.MapPost(\"/auditoriums\"",
+      "method": "POST",
+      "description": "POST /api/admin/auditoriums; Admin-protected group prefix /api/admin plus verified registration suffix."
+    },
+    {
+      "id": "admin-getauditoriums",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Administration/AdminCatalogueEndpoints.cs",
+      "symbol": "group.MapGet(\"/venues/{venueId:guid}/auditoriums\"",
+      "method": "GET",
+      "description": "GET /api/admin/venues/{venueId:guid}/auditoriums; Admin-protected group prefix /api/admin plus verified registration suffix."
+    },
+    {
+      "id": "admin-getauditorium",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Administration/AdminCatalogueEndpoints.cs",
+      "symbol": "group.MapGet(\"/auditoriums/{id:guid}\"",
+      "method": "GET",
+      "description": "GET /api/admin/auditoriums/{id:guid}; Admin-protected group prefix /api/admin plus verified registration suffix."
+    },
+    {
+      "id": "admin-renameauditorium",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Administration/AdminCatalogueEndpoints.cs",
+      "symbol": "group.MapPatch(\"/auditoriums/{id:guid}\"",
+      "method": "PATCH",
+      "description": "PATCH /api/admin/auditoriums/{id:guid}; Admin-protected group prefix /api/admin plus verified registration suffix."
+    },
+    {
+      "id": "admin-deleteauditorium",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Administration/AdminCatalogueEndpoints.cs",
+      "symbol": "group.MapDelete(\"/auditoriums/{id:guid}\"",
+      "method": "DELETE",
+      "description": "DELETE /api/admin/auditoriums/{id:guid}; Admin-protected group prefix /api/admin plus verified registration suffix."
+    },
+    {
+      "id": "admin-addseats",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Administration/AdminCatalogueEndpoints.cs",
+      "symbol": "group.MapPost(\"/auditoriums/{id:guid}/seats\"",
+      "method": "POST",
+      "description": "POST /api/admin/auditoriums/{id:guid}/seats; Admin-protected group prefix /api/admin plus verified registration suffix."
+    },
+    {
+      "id": "admin-getseats",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Administration/AdminCatalogueEndpoints.cs",
+      "symbol": "group.MapGet(\"/auditoriums/{id:guid}/seats\"",
+      "method": "GET",
+      "description": "GET /api/admin/auditoriums/{id:guid}/seats; Admin-protected group prefix /api/admin plus verified registration suffix."
+    },
+    {
+      "id": "admin-deleteseat",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Administration/AdminCatalogueEndpoints.cs",
+      "symbol": "group.MapDelete(\"/auditoriums/{id:guid}/seats/{seatId:guid}\"",
+      "method": "DELETE",
+      "description": "DELETE /api/admin/auditoriums/{id:guid}/seats/{seatId:guid}; Admin-protected group prefix /api/admin plus verified registration suffix."
+    },
+    {
+      "id": "admin-createevent",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Administration/AdminCatalogueEndpoints.cs",
+      "symbol": "group.MapPost(\"/events\"",
+      "method": "POST",
+      "description": "POST /api/admin/events; Admin-protected group prefix /api/admin plus verified registration suffix."
+    },
+    {
+      "id": "admin-getevent",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Administration/AdminCatalogueEndpoints.cs",
+      "symbol": "group.MapGet(\"/events/{id:guid}\"",
+      "method": "GET",
+      "description": "GET /api/admin/events/{id:guid}; Admin-protected group prefix /api/admin plus verified registration suffix."
+    },
+    {
+      "id": "admin-createsession",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Administration/AdminCatalogueEndpoints.cs",
+      "symbol": "CreateSessionAsync",
+      "method": "POST",
+      "description": "Admin session creation atomically generates one Available, version-zero inventory row per stored auditorium seat with an independent validated Money copy.",
+      "route": "/api/admin/sessions"
+    },
+    {
+      "id": "admin-getsession",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Administration/AdminCatalogueEndpoints.cs",
+      "symbol": "group.MapGet(\"/sessions/{id:guid}\"",
+      "method": "GET",
+      "description": "GET /api/admin/sessions/{id:guid}; Admin-protected group prefix /api/admin plus verified registration suffix."
+    },
+    {
+      "id": "auditorium-rename",
+      "app": "TicketBooking.Domain.Venue",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Venue/Auditorium.cs",
+      "symbol": "public void Rename",
+      "description": "Validates an auditorium name without changing its identity or venue."
+    },
+    {
+      "id": "admin-updateseat",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Administration/AdminCatalogueEndpoints.cs",
+      "symbol": "UpdateSeatAsync",
+      "route": "/api/admin/auditoriums/{id:guid}/seats/{seatId:guid}",
+      "method": "PATCH",
+      "description": "Edits an unused auditorium seat with scoped ownership, atomic uniqueness validation and the shared auditorium row lock."
+    },
+    {
+      "id": "seat-update-layout",
+      "app": "TicketBooking.Domain.Venue",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Venue/Seat.cs",
+      "symbol": "public void UpdateLayout",
+      "description": "Validates all editable seat values before mutation while preserving identity and auditorium."
+    },
+    {
+      "id": "admin-updateevent",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Administration/AdminCatalogueEndpoints.cs",
+      "symbol": "UpdateEventAsync",
+      "route": "/api/admin/events/{id:guid}",
+      "method": "PATCH",
+      "description": "Admin-only partial event edit with shared validation, exclusive row lock and DTO response."
+    },
+    {
+      "id": "event-update-details",
+      "app": "TicketBooking.Domain.Catalogue",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Catalogue/Event.cs",
+      "symbol": "public void UpdateDetails",
+      "description": "Validates all event details before mutation while preserving event identity."
+    },
+    {
+      "id": "admin-updatesession",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Administration/AdminCatalogueEndpoints.cs",
+      "symbol": "UpdateSessionAsync",
+      "route": "/api/admin/sessions/{id:guid}",
+      "method": "PATCH",
+      "description": "Admin partial schedule edit with relationship/time checks, inventory fencing and transactional auditorium moves."
+    },
+    {
+      "id": "session-update-schedule",
+      "app": "TicketBooking.Domain.Catalogue",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Catalogue/Session.cs",
+      "symbol": "public void UpdateSchedule",
+      "description": "Validates parent identifiers and time ordering before atomically replacing schedule values."
+    },
+    {
+      "id": "layout-reference-guard",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Administration/AdminCatalogueEndpoints.cs",
+      "symbol": "HasLayoutReferences",
+      "description": "Blocks physical layout edits when session headers or inventory reference the auditorium\u2019s physical seats."
+    },
+    {
+      "id": "reservation-reference-guard",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Administration/AdminCatalogueEndpoints.cs",
+      "symbol": "HasReservationReferences",
+      "description": "Blocks session edits for hold/booking header or inventory-item references regardless of historical status."
+    },
+    {
+      "id": "public-list-events",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Catalogue/CatalogueEndpoints.cs",
+      "symbol": "GetEventsAsync",
+      "route": "/api/events",
+      "method": "GET",
+      "description": "Anonymous Published-event listing with text/date/venue filters, bounded pagination and consistent filtered counts."
+    },
+    {
+      "id": "public-event-detail",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Catalogue/CatalogueEndpoints.cs",
+      "symbol": "GetEventAsync",
+      "route": "/api/events/{id:guid}",
+      "method": "GET",
+      "description": "Anonymous Published-event detail DTO; hidden/missing IDs are 404."
+    },
+    {
+      "id": "public-event-sessions",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Catalogue/CatalogueEndpoints.cs",
+      "symbol": "GetEventSessionsAsync",
+      "route": "/api/events/{id:guid}/sessions",
+      "method": "GET",
+      "description": "Anonymous filtered, bounded and paged Scheduled sessions of a Published event."
+    },
+    {
+      "id": "public-session-detail",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Catalogue/CatalogueEndpoints.cs",
+      "symbol": "GetSessionAsync",
+      "route": "/api/sessions/{id:guid}",
+      "method": "GET",
+      "description": "Anonymous Scheduled-session detail with current event/auditorium/venue metadata."
+    },
+    {
+      "id": "public-session-seat-map",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Catalogue/CatalogueEndpoints.cs",
+      "symbol": "GetSessionSeatsAsync",
+      "route": "/api/sessions/{id:guid}/seats",
+      "method": "GET",
+      "description": "Anonymous complete priced seat map with persisted availability and version tokens, no owner data, no-store and snapshot consistency."
+    },
+    {
+      "id": "catalogue-validation-registration",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Validation/CatalogueValidation.cs",
+      "symbol": "AddCatalogueValidation",
+      "description": "Registers explicit request/query FluentValidation validators; async Admin filters preserve authorization and error contracts."
+    },
+    {
+      "id": "catalogue-query-validator",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Validation/CatalogueQueryValidator.cs",
+      "symbol": "CatalogueQueryValidator",
+      "description": "Validates raw filters, duplicate parameters, bounded paging and offsets before parsing."
+    },
+    {
+      "id": "problem-documentation-transformer",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Errors/ProblemDetailsOperationTransformer.cs",
+      "symbol": "TransformAsync",
+      "description": "Adds safe ProblemDetails descriptions/examples to declared catalogue/Admin OpenAPI error responses."
+    },
+    {
+      "id": "development-sample-command",
+      "app": "TicketBooking.Api",
+      "kind": "command",
+      "path": "src/TicketBooking.Api/Development/DevelopmentSampleDataCommand.cs",
+      "symbol": "RunAsync",
+      "description": "Explicit --seed-sample-data Development-only command; scoped seeding without HTTP or JWT."
+    },
+    {
+      "id": "development-sample-seeder",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Development/DevelopmentSampleDataSeeder.cs",
+      "symbol": "SeedAsync",
+      "description": "Transactional idempotent sample graph/layout/future session generation with locked roots and preserved history."
     }
   ],
   "unresolved": [
-    "No HTTP endpoints or application workflows exist for these mapped entities.",
-    "Complete allocation state workflows and durable owner correlation are not implemented; version-fenced row writes now exist."
+    "Session cancellation routes remain unimplemented.",
+    "Schedule-overlap prevention, layout versioning and per-seat/type pricing remain deferred.",
+    "Complete allocation state workflows and durable owner correlation remain separate work."
   ]
 }

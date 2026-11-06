@@ -17,4 +17,9 @@ public sealed class Auditorium
     public Guid Id { get; private set; }
     public Guid VenueId { get; private set; }
     public string Name { get; private set; } = null!;
+
+    public void Rename(string name)
+    {
+        Name = DomainGuard.Text(name, nameof(name));
+    }
 }

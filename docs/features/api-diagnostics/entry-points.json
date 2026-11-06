@@ -75,10 +75,26 @@
       "path": "src/TicketBooking.Domain/DomainRuleException.cs",
       "symbol": "public sealed class DomainRuleException",
       "description": "Carries typed business rule failures."
+    },
+    {
+      "id": "validation-problem-adapter",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Errors/ApiProblemDetails.cs",
+      "symbol": "public static ProblemHttpResult Validation",
+      "description": "Converts FluentValidation failures to the existing stable field-error ProblemDetails envelope."
+    },
+    {
+      "id": "documented-openapi-registration",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Errors/DocumentedOpenApi.cs",
+      "symbol": "AddDocumentedOpenApi",
+      "description": "Registers OpenAPI generation with safe catalogue/Admin ProblemDetails descriptions and examples."
     }
   ],
   "unresolved": [
-    "Health, OpenAPI, TLS and full production host startup are not verified by the error HTTP tests.",
+    "Actual Development-only OpenAPI exposure, health, TLS and full production host startup remain unverified; generated catalogue/Admin OpenAPI responses are fixture-tested.",
     "Booking/payment endpoints, durable callback deduplication and transaction orchestration remain absent; authentication has its own feature bundle."
   ]
 }

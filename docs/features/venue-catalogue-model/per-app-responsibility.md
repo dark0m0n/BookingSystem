@@ -1,12 +1,14 @@
 # Application responsibilities
 
-The deployable API and PostgreSQL service are unchanged. All six types are part of the single TicketBooking.Domain library:
+- **TicketBooking.Api** owns anonymous public event/session queries, seat maps and pagination and Admin route/policy registration, FluentValidation registration/endpoint filters, bounded request validation, documented ProblemDetails, DTO mapping and EF transaction orchestration. Event creation/update share validation; partial updates merge under an event-row lock. Management guards follow session headers, history-item links and physical-seat inventory references; API conflicts preserve reservation snapshots. Session creation/update resolves event/layout references, derives the end and initializes inventory. No customer ownership bypass is introduced.
+- **TicketBooking.Contracts.Catalogue** owns concrete public event/session/seat-map records without EF/domain/Identity dependencies. Shared TicketBooking.Contracts.PagedResponse<T> owns consistent page/navigation metadata. API typed result signatures restrict successful payloads to these DTOs.
+- **TicketBooking.Contracts.Administration** owns dependency-free request/response records. It exposes integer enum fields and scalar money fields; no EF or Identity entities are returned.
+- **TicketBooking.Domain.Venue** owns Venue, Auditorium, Seat and SeatType. Seat.UpdateLayout atomically validates local values and preserves seat identity/auditorium; cross-seat uniqueness is checked in the API and database. Auditorium.Rename validates the name without changing its venue/ID. **Catalogue** owns Event, Session, SessionSeat and statuses, retaining local constructor rules and Money values. Event.UpdateDetails validates all fields atomically without changing identity or existing sessions. Session.UpdateSchedule validates parent IDs and UTC time ordering without changing session identity/status; API orchestration validates stored relationships and safe-edit eligibility.
+- **Infrastructure.Persistence** owns the shared EF model/migrations and PostgreSQL stores. Auditorium row locks serialize layout/session operations; exclusive/shared event locks coordinate event updates and session creation. This is the existing monolith/database, not a new service.
+- **Application.Identity** supplies reusable customer ownership checks to other workflows; Admin handlers currently coordinate framework operations directly, consistent with AuthEndpoints.
+- **Reservation/Booking/Payment** retain their existing domain rules; these setup operations create no holds, bookings, payments or provider calls.
 
-- **Venue** boundary owns Venue, Auditorium, Seat, and SeatType: physical layout only.
-- **Catalogue** boundary owns Event, Session, SessionSeat, and their status enums: offerings, schedule, and per-session inventory representation.
-- **Reservation/Booking** now contain [hold/booking lifecycle entities](../reservation-booking-payment/FEATURE.md); application transactions and SessionSeat updates remain unimplemented. SessionSeat status alone does not implement those workflows.
-- **Application** will coordinate referenced-entity checks and cross-boundary operations when implemented.
-- **Infrastructure** now supplies the [entity mappings and relational constraints](../local-persistence/FEATURE.md).
-- **Contracts/API** receive no DTOs, routes, or public HTTP behavior in this change.
+Human operational ownership is unspecified. The customer booking application layer remains future work. Public event listing reads the existing shared database; it is not a separate deployed service.
 
-The entity constructors own local validation and return read-only scalar values. They perform no external calls or data access. Human owners and deployed database ownership are not assigned. Evidence: [domain map](../../../src/TicketBooking.Domain/README.md) and [entity source index](entry-points.json).
+- **TicketBooking.Api.Development** owns explicit command dispatch, Development gating, seed graph orchestration, result IDs and a scoped host without HTTP. The command is separate from normal API startup and Identity admin provisioning.
+- **Infrastructure.Persistence/PostgreSQL** supplies the existing context, constraints, transaction/advisory lock and auditorium/event row locks; no sample-specific schema is introduced.

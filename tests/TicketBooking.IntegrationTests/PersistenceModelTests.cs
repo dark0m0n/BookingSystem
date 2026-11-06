@@ -15,6 +15,14 @@ namespace TicketBooking.IntegrationTests;
 public class PersistenceModelTests
 {
     [Fact]
+    public void Migrations_ModelSnapshotMatchesCurrentModel()
+    {
+        using var context = CreateContext();
+
+        Assert.False(context.Database.HasPendingModelChanges());
+    }
+
+    [Fact]
     public void Model_ContainsAllEntitiesWithRequiredRestrictiveForeignKeys()
     {
         using var context = CreateContext();

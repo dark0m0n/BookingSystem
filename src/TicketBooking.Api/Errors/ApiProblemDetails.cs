@@ -1,11 +1,21 @@
 using System.Diagnostics;
+using FluentValidation.Results;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace TicketBooking.Api.Errors;
 
 public static class ApiProblemDetails
 {
+    public static ProblemHttpResult Validation(HttpContext context, ValidationResult result)
+    {
+        var errors = result.Errors.GroupBy(e => e.PropertyName).ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).Distinct().ToArray());
+        var problem = new HttpValidationProblemDetails(errors) { Status = 400, Title = "Invalid request" };
+        Enrich(context, problem);
+        problem.Type = $"urn:ticketbooking:error:{problem.Extensions["code"]}";
+        return TypedResults.Problem(problem);
+    }
     public static IServiceCollection AddApiErrors(this IServiceCollection services)
     {
         services.AddProblemDetails(options =>

@@ -1,6 +1,6 @@
 # Money and server-calculated pricing
 
-Status: **partial**. Money precision/currency and the domain pricing pipeline are implemented; HTTP contracts and authoritative inventory loading are absent. The [persistence mappings](../local-persistence/FEATURE.md) now store Money amount/currency columns.
+Status: **partial**. Money precision/currency and the domain pricing pipeline are implemented; Admin session creation now resolves the stored auditorium layout and generates priced inventory; customer hold/checkout HTTP workflows remain absent. See the [Admin setup contract](../venue-catalogue-model/admin-http-contract.md). The [persistence mappings](../local-persistence/FEATURE.md) now store Money amount/currency columns.
 
 Working tree inspected on top of commit `5ba7f54`. The requirement is explicit monetary precision/currency with totals calculated on the server. Trusted domain/application callers can price seats, snapshot a hold, create a booking, and derive a payment amount without passing a total or independent charge amount.
 

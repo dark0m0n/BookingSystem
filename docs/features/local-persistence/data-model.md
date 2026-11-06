@@ -50,3 +50,7 @@ The [refresh migration](../../../src/TicketBooking.Infrastructure/Persistence/Mi
 ## Built-in role data
 
 SeedCustomerAndAdminRoles upserts Customer/CUSTOMER and Admin/ADMIN into AspNetRoles without changing tables or adding users/memberships. Existing normalized roles keep their IDs/UserRoles; names become canonical. Down retains role data to avoid deleting existing grants. Public registration alone adds Customer membership transactionally; existing roleless accounts are not backfilled.
+
+## Venue/catalogue verification scope
+
+The six-entity PostgreSQL round-trip test reloads Venue, Auditorium, Seat, Event, Session and SessionSeat after clearing EF tracking. It verifies all scalar values and parent IDs, Unicode text, nondefault enum values, interval duration, UTC-normalized session timestamps, numeric price/currency, initial concurrency version and each Available/Held/Booked/Unavailable inventory status. Existing tests separately verify uniqueness, restrictive deletion, foreign keys and concurrency. A metadata test asserts no pending model changes against the checked-in migration snapshot. No new migration or production schema change is introduced by this verification.

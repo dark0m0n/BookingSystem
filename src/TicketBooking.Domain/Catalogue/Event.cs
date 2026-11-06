@@ -15,20 +15,8 @@ public sealed class Event
         int ageRating,
         EventStatus status = EventStatus.Draft)
     {
-        if (duration <= TimeSpan.Zero)
-        {
-            throw new ArgumentOutOfRangeException(nameof(duration), "Duration must be positive.");
-        }
-
-        ArgumentOutOfRangeException.ThrowIfNegative(ageRating);
-        ArgumentNullException.ThrowIfNull(description);
-
         Id = DomainGuard.Id(id, nameof(id));
-        Title = DomainGuard.Text(title, nameof(title));
-        Description = description;
-        Duration = duration;
-        AgeRating = ageRating;
-        Status = DomainGuard.Defined(status, nameof(status));
+        UpdateDetails(title, description, duration, ageRating, status);
     }
 
     public Guid Id { get; private set; }
@@ -37,4 +25,24 @@ public sealed class Event
     public TimeSpan Duration { get; private set; }
     public int AgeRating { get; private set; }
     public EventStatus Status { get; private set; }
+
+    public void UpdateDetails(string title, string description, TimeSpan duration, int ageRating, EventStatus status)
+    {
+        if (duration <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(duration), "Duration must be positive.");
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNegative(ageRating);
+        ArgumentNullException.ThrowIfNull(description);
+
+        var validatedTitle = DomainGuard.Text(title, nameof(title));
+        DomainGuard.Defined(status, nameof(status));
+
+        Title = validatedTitle;
+        Description = description;
+        Duration = duration;
+        AgeRating = ageRating;
+        Status = status;
+    }
 }

@@ -1,8 +1,8 @@
 # PostgreSQL persistence and constraints
 
-Status: **partial**. Local PostgreSQL provisioning, EF mappings, migration, foreign keys, unique indexes, and database round trips are implemented. Customer/admin database workflows, durable allocation ownership, and transactional booking operations remain absent. [Row-level concurrency](../session-seat-concurrency/FEATURE.md) now fences SessionSeat changes.
+Status: **partial**. Local PostgreSQL provisioning, EF mappings, migration, foreign keys, unique indexes, and database round trips are implemented. Admin setup writes are implemented; customer booking workflows, durable allocation ownership and transactional booking operations remain absent. [Row-level concurrency](../session-seat-concurrency/FEATURE.md) now fences SessionSeat changes.
 
-Working tree inspected on top of `5ba7f54`, including uncommitted domain/Money/timing work. Developers can use the existing Npgsql DbContext to persist eleven business entity types plus seven framework Identity types and two [refresh entities](../identity-persistence/refresh-token-rotation.md). The database rejects duplicate seat coordinates, duplicate session inventory, orphan references, repeated booking numbers, and duplicate payment identities.
+Working tree inspected on top of `93f4f16`. Developers can use the existing Npgsql DbContext to persist eleven business entity types plus seven framework Identity types and two [refresh entities](../identity-persistence/refresh-token-rotation.md). The database rejects duplicate seat coordinates, duplicate session inventory, orphan references, repeated booking numbers, and duplicate payment identities.
 
 ## Acceptance and verification
 
@@ -35,3 +35,13 @@ The [registration/profile migration](../../../src/TicketBooking.Infrastructure/P
 [AddRefreshTokenRotation](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261105165909_AddRefreshTokenRotation.cs) creates refresh families and hash-only generation history. Rotation/replay revocation use an explicit PostgreSQL family-row lock and transaction; see the [rotation contract](../identity-persistence/refresh-token-rotation.md). The full 325-test suite passed against disposable PostgreSQL, including rollback and concurrency cases.
 
 The data-only [SeedCustomerAndAdminRoles](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261105211207_SeedCustomerAndAdminRoles.cs) migration ensures canonical role definitions and retains existing IDs/memberships. It creates no admin account. Registration now wraps account creation and Customer membership in one transaction; see [roles and policies](../identity-persistence/roles-and-policies.md).
+
+## Venue and catalogue mapping verification
+
+All six requested entities already have registered EF configurations: Venue, Auditorium, Seat, Event, Session and SessionSeat. The existing AddDomainForeignKeysAndUniqueConstraints migration creates these tables; AddSessionSeatOptimisticConcurrency adds the inventory version check constraint. No additional schema migration is needed when the current model matches its snapshot. See [the mapping locations](backend-structure.md) and [stored fields](data-model.md).
+
+PersistenceModelTests.Migrations_ModelSnapshotMatchesCurrentModel detects model/snapshot drift. PostgresPersistenceTests.VenueAndCatalogueRoundTrip_PreservesEveryFieldAndInventoryStatus reloads all six entity types from PostgreSQL, checking every field, parent link, UTC timestamps, EUR price precision, Unicode text and all four inventory states. The test fixture applies the migration chain to the isolated database first; it does not apply migrations to the development database.
+
+Verification result: **429 tests passed, zero failed/skipped**, using fresh disposable PostgreSQL 17. The model-snapshot check and all four catalogue/inventory round trips passed. Formatting passed for the changed tests; documentation JSON, code anchors and local links validated.
+
+Admin venue/layout/event/session setup now uses this schema through [Admin-only HTTP operations](../venue-catalogue-model/admin-http-contract.md). Auditorium row locks serialize layout changes and atomic session/inventory creation. No new migration is required; customer booking/allocation application transactions remain separate work.

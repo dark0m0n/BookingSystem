@@ -11,3 +11,5 @@
 See [lifecycle](../reservation-booking-payment/FEATURE.md), [concurrency](../session-seat-concurrency/FEATURE.md), [timing](../booking-timing/FEATURE.md), and [persistence](../local-persistence/FEATURE.md). Business routes and provider callbacks remain absent; no external network integrations, broker or refund processing are introduced.
 
 Changing an existing code's string or meaning breaks clients. Add a new code, enum mapping and behavioral test for a new failure. Database uniqueness violations are not globally classified as payment replay; durable idempotency requires application-level handling.
+
+Catalogue/Admin FluentValidation validators feed ApiProblemDetails.Validation without changing stable public codes. Explicit endpoint response metadata and ProblemDetailsOperationTransformer document the same statuses and safe envelope in Development OpenAPI. This is local schema generation; no external validation or documentation service is contacted.

@@ -98,6 +98,38 @@
       "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261105211207_SeedCustomerAndAdminRoles.cs",
       "symbol": "public partial class SeedCustomerAndAdminRoles",
       "description": "Ensures Customer/Admin definitions without granting memberships; retains existing IDs."
+    },
+    {
+      "id": "venue-mapping",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Configurations/VenueConfiguration.cs",
+      "symbol": "public sealed class VenueConfiguration",
+      "description": "Maps venue key, name and address."
+    },
+    {
+      "id": "auditorium-mapping",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Configurations/AuditoriumConfiguration.cs",
+      "symbol": "public sealed class AuditoriumConfiguration",
+      "description": "Maps auditoriums and their restrictive venue foreign key."
+    },
+    {
+      "id": "event-mapping",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Configurations/EventConfiguration.cs",
+      "symbol": "public sealed class EventConfiguration",
+      "description": "Maps catalogue events, text and scalar duration/rating/status."
+    },
+    {
+      "id": "session-mapping",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Configurations/SessionConfiguration.cs",
+      "symbol": "public sealed class SessionConfiguration",
+      "description": "Maps sessions with event/auditorium references and scalar UTC timestamps/status."
     }
   ],
   "unresolved": [

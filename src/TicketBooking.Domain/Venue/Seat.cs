@@ -23,4 +23,16 @@ public sealed class Seat
     public string Row { get; private set; } = null!;
     public int Number { get; private set; }
     public SeatType Type { get; private set; }
+
+    public void UpdateLayout(string row, int number, SeatType type)
+    {
+        // Validate all values before changing the existing layout.
+        var validatedRow = DomainGuard.Text(row, nameof(row));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(number);
+        DomainGuard.Defined(type, nameof(type));
+
+        Row = validatedRow;
+        Number = number;
+        Type = type;
+    }
 }

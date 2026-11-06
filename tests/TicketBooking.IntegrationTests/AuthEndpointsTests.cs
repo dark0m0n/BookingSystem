@@ -18,8 +18,11 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
+using TicketBooking.Api.Administration;
 using TicketBooking.Api.Auth;
+using TicketBooking.Api.Catalogue;
 using TicketBooking.Api.Errors;
+using TicketBooking.Api.Validation;
 using TicketBooking.Contracts.Auth;
 using TicketBooking.Infrastructure.Identity;
 using TicketBooking.Infrastructure.Persistence;
@@ -59,16 +62,21 @@ public partial class AuthEndpointsTests : IAsyncLifetime
         builder.Services.AddSingleton(_ => NpgsqlDataSource.Create(testConnection));
         builder.Services.AddDbContext<TicketBookingDbContext>((services, options) =>
             options.UseNpgsql(services.GetRequiredService<NpgsqlDataSource>())
-            .AddInterceptors(refreshWriteFailure, logoutCommitFailure, customerRoleWriteFailure));
+            .AddInterceptors(refreshWriteFailure, logoutCommitFailure, customerRoleWriteFailure, adminInventoryWriteFailure));
         builder.Services.AddTicketBookingIdentity().AddSignInManager();
         builder.Services.AddTicketBookingAuthentication(builder.Configuration);
         builder.Services.AddApiErrors();
+        builder.Services.AddCatalogueValidation();
+        builder.Services.AddDocumentedOpenApi();
         app = builder.Build();
         app.UseExceptionHandler();
         app.UseStatusCodePages(ApiProblemDetails.WriteStatusCodeAsync);
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapAuthEndpoints();
+        app.MapAdminCatalogueEndpoints();
+        app.MapCatalogueEndpoints();
+        app.MapOpenApi();
         app.MapGet("/test/protected", (ClaimsPrincipal user) => Results.Ok(new { subject = user.FindFirst("sub")!.Value }))
             .RequireAuthorization();
         app.MapGet("/test/admin", () => Results.NoContent()).RequireAuthorization(AuthorizationPolicies.Admin);

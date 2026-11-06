@@ -39,6 +39,47 @@ public class PostgresPersistenceTests : IAsyncLifetime
         await context.DisposeAsync();
     }
 
+    [PostgresTheory]
+    [InlineData(SessionSeatStatus.Available)]
+    [InlineData(SessionSeatStatus.Held)]
+    [InlineData(SessionSeatStatus.Booked)]
+    [InlineData(SessionSeatStatus.Unavailable)]
+    public async Task VenueAndCatalogueRoundTrip_PreservesEveryFieldAndInventoryStatus(SessionSeatStatus status)
+    {
+        var venue = new VenueEntity(Guid.NewGuid(), "Кінотеатр", "Kyiv, Test Street 12");
+        var auditorium = new Auditorium(Guid.NewGuid(), venue.Id, "Screen 2");
+        var seat = new Seat(Guid.NewGuid(), auditorium.Id, "Б", 7, SeatType.Premium);
+        var offering = new Event(Guid.NewGuid(), "Test film", "A persisted description", TimeSpan.FromMinutes(105),
+            16, EventStatus.Published);
+        var startsAt = Now.AddHours(2).ToOffset(TimeSpan.FromHours(2));
+        var session = new Session(Guid.NewGuid(), offering.Id, auditorium.Id, startsAt, startsAt.Add(offering.Duration),
+            SessionStatus.Cancelled);
+        var inventory = new SessionSeat(Guid.NewGuid(), session.Id, seat.Id, new Money(25.75m, "EUR"), status);
+        context.AddRange(venue, auditorium, seat, offering, session, inventory);
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var storedVenue = await context.Venues.SingleAsync(value => value.Id == venue.Id);
+        var storedAuditorium = await context.Auditoriums.SingleAsync(value => value.Id == auditorium.Id);
+        var storedSeat = await context.Seats.SingleAsync(value => value.Id == seat.Id);
+        var storedEvent = await context.Events.SingleAsync(value => value.Id == offering.Id);
+        var storedSession = await context.Sessions.SingleAsync(value => value.Id == session.Id);
+        var storedInventory = await context.SessionSeats.SingleAsync(value => value.Id == inventory.Id);
+
+        Assert.Equal((venue.Name, venue.Address), (storedVenue.Name, storedVenue.Address));
+        Assert.Equal((venue.Id, auditorium.Name), (storedAuditorium.VenueId, storedAuditorium.Name));
+        Assert.Equal((auditorium.Id, seat.Row, seat.Number, seat.Type),
+            (storedSeat.AuditoriumId, storedSeat.Row, storedSeat.Number, storedSeat.Type));
+        Assert.Equal((offering.Title, offering.Description, offering.Duration, offering.AgeRating, offering.Status),
+            (storedEvent.Title, storedEvent.Description, storedEvent.Duration, storedEvent.AgeRating, storedEvent.Status));
+        Assert.Equal((offering.Id, auditorium.Id, session.StartsAt, session.EndsAt, session.Status),
+            (storedSession.EventId, storedSession.AuditoriumId, storedSession.StartsAt, storedSession.EndsAt, storedSession.Status));
+        Assert.Equal(TimeSpan.Zero, storedSession.StartsAt.Offset);
+        Assert.Equal(TimeSpan.Zero, storedSession.EndsAt.Offset);
+        Assert.Equal((session.Id, seat.Id, inventory.Price, status, inventory.Version),
+            (storedInventory.SessionId, storedInventory.SeatId, storedInventory.Price, storedInventory.Status, storedInventory.Version));
+    }
+
     [PostgresFact]
     public async Task MigrationAndRoundTrip_PreserveSnapshotsDeadlinesAndReadOnlyCollections()
     {

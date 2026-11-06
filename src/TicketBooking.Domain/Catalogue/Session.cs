@@ -34,4 +34,19 @@ public sealed class Session
     public DateTimeOffset StartsAt { get; private set; }
     public DateTimeOffset EndsAt { get; private set; }
     public SessionStatus Status { get; private set; }
+
+    public void UpdateSchedule(Guid eventId, Guid auditoriumId, DateTimeOffset startsAt, DateTimeOffset endsAt)
+    {
+        var validatedEventId = DomainGuard.Id(eventId, nameof(eventId));
+        var validatedAuditoriumId = DomainGuard.Id(auditoriumId, nameof(auditoriumId));
+        if (endsAt <= startsAt)
+        {
+            throw new ArgumentOutOfRangeException(nameof(endsAt), "End time must be after start time.");
+        }
+
+        EventId = validatedEventId;
+        AuditoriumId = validatedAuditoriumId;
+        StartsAt = startsAt.ToUniversalTime();
+        EndsAt = endsAt.ToUniversalTime();
+    }
 }

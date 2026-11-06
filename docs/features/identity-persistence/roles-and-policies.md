@@ -20,7 +20,7 @@ endpoint.RequireAuthorization(AuthorizationPolicies.Customer);
 managementEndpoint.RequireAuthorization(AuthorizationPolicies.Admin);
 ```
 
-No production business endpoints are invented for this step. Real HTTP fixture routes verify both policies with login/refresh tokens. Role eligibility does not replace the reusable [resource ownership checks](resource-ownership.md) or transaction rules. Admin has no implicit ownership bypass.
+The [Admin venue/catalogue routes](../venue-catalogue-model/admin-http-contract.md) now explicitly require the Admin policy. Customer booking routes remain future work. Real HTTP fixture routes verify both policies with login/refresh tokens. Role eligibility does not replace the reusable [resource ownership checks](resource-ownership.md) or transaction rules. Admin has no implicit ownership bypass.
 
 ## Role initialization and compatibility
 

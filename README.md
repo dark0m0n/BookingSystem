@@ -34,6 +34,22 @@ After applying migrations through [Local startup](#local-startup), run this Bash
 
 The command exits without starting HTTP and refuses non-Development environments. Identity validates/hashes the password; creation and Admin membership commit together. Rerunning for an existing admin leaves its password/profile unchanged. Existing non-admin accounts are rejected. Optional `DevelopmentAdmin__DisplayName` defaults to `Development Admin`. Nothing runs automatically during normal startup; no JWT signing key is needed for this command. See [development admin initialization](docs/features/identity-persistence/development-admin.md) for configuration and failures.
 
+## Development sample data
+
+After applying the existing migrations (see [Local startup](#local-startup)), seed the local catalogue explicitly:
+
+```bash
+dotnet run --project src/TicketBooking.Api --no-launch-profile -- --environment Development --seed-sample-data
+```
+
+This creates a sample venue/auditorium, 24 seats in rows A–C (Standard/Premium/Accessible), a Published fictional movie (`Event`), and a Scheduled session about one day ahead in UTC. Each seat gets its own Available inventory row at 150 UAH/version 0. The command prints the resource IDs and start time, then exits without starting HTTP. It needs `ConnectionStrings:DefaultConnection`, but no admin account or JWT signing key.
+
+Reruns reuse the sample roots and an existing future session without resetting seats, prices or reservations. Once no future sample session remains, the command adds another rather than moving historical sessions. Ordinary API startup never seeds data. The command is Development-only and must be run separately from `--initialize-admin`. See [sample data behavior](docs/features/venue-catalogue-model/development-sample-data.md).
+
+## Admin venue and session setup
+
+Admin-only routes now create venues, manage auditoriums and physical seats, create events and schedule complete sessions with priced inventory. Follow the [Admin HTTP contract](docs/features/venue-catalogue-model/admin-http-contract.md): venue → auditorium → seat batch → published event → session. Session creation derives the end from event duration and atomically creates one Available, version-zero inventory row per seat. Used layouts cannot be changed/deleted; names can still be updated. All administration routes require the Admin policy (401 without authentication, 403 without permission). Anonymous `GET /api/events` lists Published events with optional `query`, UTC `date`, `venueId`, `page` and `pageSize` (default 20, maximum 100); see the [public HTTP contract](docs/features/venue-catalogue-model/public-http-contract.md). Anonymous event details, paged event sessions, session details and priced seat maps are also available through that contract. Scheduling-overlap checks and customer reservation routes remain future work.
+
 ## Booking timing
 
 The API binds `BookingTiming` from configuration once at startup and registers an immutable policy. Defaults in `src/TicketBooking.Api/appsettings.json` are:
