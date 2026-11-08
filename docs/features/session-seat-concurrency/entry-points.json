@@ -61,7 +61,7 @@
     }
   ],
   "unresolved": [
-    "Durable allocation ownership/claim-token correlation and multi-aggregate hold/booking workflows remain unimplemented.",
-    "There are no HTTP conflict handlers, expiry workers, or payment/seat transaction coordinators."
+    "Customer hold claim-token correlation and atomic creation are implemented; hold-to-booking transfer is implemented; pending-booking release and confirmation remain absent.",
+    "Active-hold expiry is implemented; pending-booking expiry and payment/seat transaction coordinators remain absent."
   ]
 }

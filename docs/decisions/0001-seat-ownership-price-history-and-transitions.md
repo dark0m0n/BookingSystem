@@ -20,7 +20,7 @@ Use database constraints for relational identity and uniqueness, domain methods 
 
 The allocation writer supports Available→Held, Held→Held transfer, Held→Booked confirmation, and Held/Booked→Available/Unavailable release. Transfer must advance the token even while still Held, fencing out stale expiry/release actors. A stale write fails; reloading a new token and blindly retrying discards this protection.
 
-**Remaining requirement:** persist which hold/booking owns the allocation and correlate its claim version. Version is not an owner ID or authorization credential. Booking has no source HoldId link; neither item stores a claim version. Application transactions must coordinate all seats, hold conversion and booking state. The booking factory leaves its source hold unchanged.
+**Implemented for hold creation:** the customer endpoint atomically persists hold ownership, item-to-inventory links and each returned claim version in SeatHoldItem.AllocationVersion. Legacy item tokens remain null/unknown. Version is not an owner ID or authorization credential. HoldConversionService now atomically creates a booking, marks Converted and transfers each claim, retaining new tokens on BookingItem. The factory alone leaves its source hold unchanged and must not be persisted as a standalone production conversion. Source HoldId replay correlation and pending-booking release/confirmation coordination remain future work.
 
 Required FKs use restricted deletion to preserve referenced records. They prove existence, not that a seat shares its session's auditorium or that an item shares its parent's session. See [schema constraints](../features/local-persistence/data-model.md), [allocation writer](../../src/TicketBooking.Infrastructure/Persistence/SessionSeatAllocationWriter.cs), and [concurrency](../features/session-seat-concurrency/FEATURE.md).
 
@@ -48,7 +48,7 @@ SQL precision does not enforce every Money rule, cross-row sums or immutability.
 | Payment | Pending→Succeeded or Failed | Nonblank provider reference matching any recorded reference. |
 | Payment | Succeeded/Failed→same outcome | Same reference; idempotent no-op. |
 
-Other public transitions reject without changing state. Terminal holds/bookings reject repeated transitions. Completed payments cannot change outcome/reference. Failed payments do not reopen; another attempt requires a still-eligible booking. Refunded enum values are reserved; refund and messaging entities/transitions remain deferred.
+Other public transitions reject without changing state. Matching hold Cancelled/Expired cleanup repeats are harmless; other terminal hold transitions and repeated booking transitions reject. Completed payments cannot change outcome/reference. Failed payments do not reopen; another attempt requires a still-eligible booking. Refunded enum values are reserved; refund and messaging entities/transitions remain deferred.
 
 Use DomainRuleException/DomainError for expected rejections and stable wire codes such as seat_not_available, hold_expired and payment_already_processed. Reference mismatch is distinct from a conflicting outcome. See [error codes](../features/api-diagnostics/error-codes.md) and the [lifecycle flow](../features/reservation-booking-payment/end-to-end-flow.md).
 
@@ -66,7 +66,7 @@ After conversion, the booking retains Held inventory until PaymentDeadline; orig
 
 Schema evidence: [domain migration](../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261105143133_AddDomainForeignKeysAndUniqueConstraints.cs) and [concurrency migration](../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261105144851_AddSessionSeatOptimisticConcurrency.cs). Applied development/deployment state is not verified. This documentation change applies no migrations and changes no runtime behavior.
 
-Future work must add durable allocation/source-hold/confirming-payment links, atomic workflows, provider verification/deduplication, expiry triggers and compensation before claiming complete ownership enforcement. Add domain tests alongside new rules and database/application tests for cross-aggregate guarantees.
+Hold creation/cleanup/conversion now retain claim-token links and use atomic workflows. Future work must add source-hold/confirming-payment replay links, public booking/payment workflows, provider verification/deduplication, expiry triggers and compensation before claiming complete ownership enforcement. Add domain tests alongside new rules and database/application tests for cross-aggregate guarantees.
 
 ## Identity persistence follow-up
 

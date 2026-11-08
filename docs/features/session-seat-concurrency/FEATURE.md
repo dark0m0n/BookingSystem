@@ -1,6 +1,6 @@
 # Session-seat optimistic concurrency
 
-Status: **partial**. Versioned row updates/deletes, explicit fenced allocation writes and HTTP conflict mapping are implemented and tested. Full hold/booking transactions, durable allocation-owner links and expiry workers remain absent.
+Status: **partial**. Versioned row updates/deletes, explicit fenced allocation writes and HTTP conflict mapping are implemented and tested. Atomic customer hold creation, item allocation-version capture and owner cancellation/release are implemented; Active-hold expiry now uses retained-version releases; hold-to-booking transfer is now atomic and retains new booking tokens; pending-booking release/expiry remains absent.
 
 Working tree inspected on top of `5ba7f54`, including uncommitted persistence/timing/Money work. Trusted callers can claim inventory, transfer a held allocation, confirm it, or release it without silently overwriting a newer row version. All logic stays in the existing projects/application.
 

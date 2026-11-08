@@ -6,6 +6,7 @@ using TicketBooking.Api.Catalogue;
 using TicketBooking.Api.Configuration;
 using TicketBooking.Api.Development;
 using TicketBooking.Api.Errors;
+using TicketBooking.Api.Reservation;
 using TicketBooking.Api.Validation;
 using TicketBooking.Infrastructure.Identity;
 using TicketBooking.Infrastructure.Persistence;
@@ -41,6 +42,7 @@ builder.Services.AddDocumentedOpenApi();
 builder.Services.AddHealthChecks();
 builder.Services.AddApiErrors();
 builder.Services.AddCatalogueValidation();
+builder.Services.AddHoldValidation();
 
 var connectionString =
     builder.Configuration.GetConnectionString("DefaultConnection")
@@ -50,6 +52,8 @@ var connectionString =
 builder.Services.AddDbContext<TicketBookingDbContext>(options =>
     options.UseNpgsql(connectionString));
 builder.Services.AddScoped<SessionSeatAllocationWriter>();
+builder.Services.AddScoped<HoldConversionService>();
+builder.Services.AddHoldExpiryWorker(builder.Configuration);
 builder.Services.AddTicketBookingIdentity().AddSignInManager();
 builder.Services.AddTicketBookingAuthentication(builder.Configuration);
 
@@ -70,6 +74,7 @@ app.UseAuthorization();
 app.MapAuthEndpoints();
 app.MapAdminCatalogueEndpoints();
 app.MapCatalogueEndpoints();
+app.MapHoldEndpoints();
 
 // Liveness only: database readiness checks can be added separately.
 app.MapHealthChecks("/health");

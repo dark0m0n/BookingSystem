@@ -45,3 +45,9 @@ PersistenceModelTests.Migrations_ModelSnapshotMatchesCurrentModel detects model/
 Verification result: **429 tests passed, zero failed/skipped**, using fresh disposable PostgreSQL 17. The model-snapshot check and all four catalogue/inventory round trips passed. Formatting passed for the changed tests; documentation JSON, code anchors and local links validated.
 
 Admin venue/layout/event/session setup now uses this schema through [Admin-only HTTP operations](../venue-catalogue-model/admin-http-contract.md). Auditorium row locks serialize layout changes and atomic session/inventory creation. No new migration is required; customer booking/allocation application transactions remain separate work.
+
+## Hold mapping verification
+
+SeatHold and SeatHoldItem mappings and table creation already exist in the checked-in migration chain. The working-tree verification adds a focused four-state, two-item PostgreSQL round trip and indexes the configurations in [entry-points.json](entry-points.json). See [backend structure](backend-structure.md#hold-configurations) and [data model](data-model.md#hold-mapping-verification-scope). This scope does not add customer hold endpoints or change allocation workflows.
+
+Verification: all 44 targeted PersistenceModelTests and PostgresPersistenceTests cases passed with zero skips against fresh disposable PostgreSQL 17. This includes migration application, snapshot consistency, the four hold-state round trips and existing constraint/snapshot tests. Documentation entries, code anchors and local links validated.

@@ -11,6 +11,8 @@ public sealed class SeatHoldConfiguration : IEntityTypeConfiguration<Entity>
         builder.ToTable("SeatHolds");
         builder.HasKey(entity => entity.Id);
         builder.Property(entity => entity.Id).ValueGeneratedNever();
+        builder.Property(hold => hold.Status).IsConcurrencyToken();
+        builder.HasIndex(hold => new { hold.ExpiresAt, hold.Id }).HasFilter("\"Status\" = 0");
         builder.ComplexProperty(hold => hold.TotalAmount).ConfigureMoney("TotalAmount", "Currency");
         builder.HasOne<TicketBooking.Domain.Catalogue.Session>().WithMany()
             .HasForeignKey(hold => hold.SessionId).OnDelete(DeleteBehavior.Restrict);

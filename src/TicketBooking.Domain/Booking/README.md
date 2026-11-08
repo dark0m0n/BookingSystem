@@ -17,3 +17,5 @@ Keep domain rules free of ASP.NET Core, EF Core, provider SDKs, and network I/O.
 See the [domain boundary map](../README.md) for the shared conventions.
 
 Monetary fields use immutable `Money` with explicit currency and decimal(18,2) limits. See [money and pricing](../../../docs/features/money-and-pricing/FEATURE.md) for server-derived totals and the current integration limits.
+
+Production hold conversion must use Infrastructure HoldConversionService: it loads and locks the hold, checks the caller/deadline, transfers retained seat claims and persists the booking/Converted state in one transaction. The domain factory remains a pure construction API and must not be saved separately from consumption/transfer. BookingItem stores the returned transfer token independently of its source hold token.

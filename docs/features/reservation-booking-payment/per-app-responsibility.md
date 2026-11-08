@@ -1,14 +1,10 @@
 # Application responsibilities
 
-All new code lives in the single TicketBooking.Domain assembly:
+- **TicketBooking.Api** owns the customer hold HTTP workflow: authenticated caller resolution, request validation, eligibility checks, ordered fenced allocations, aggregate persistence in one PostgreSQL transaction, owner-only reads, atomic cancellation/release, bounded expiry polling/selection with fresh scopes, and DTO/error serialization. Program registers the route, validators, clock, policy and writer. Admin roles use their own identity under the established Customer policy.
+- **TicketBooking.Application** provides ICurrentUser and ResourceOwnershipService; no database dependencies are introduced there.
+- **TicketBooking.Domain.Reservation** owns hold validity, snapshots, totals, expiry/state/owner rules, one-time allocation-version capture, and owner-safe repeated cleanup. It does not mutate inventory or booking aggregates.
+- **TicketBooking.Domain.Catalogue** owns session and inventory state/price representation.
+- **TicketBooking.Domain.Booking/Payment** own their existing domain lifecycle rules; their HTTP workflows remain absent.
+- **TicketBooking.Infrastructure** owns EF mappings/migrations, PostgreSQL storage, Identity stores, SessionSeatAllocationWriter version/status predicates, the transactional HoldExpiryReleaser, and HoldConversionService orchestration using Application ownership checks.
 
-- **Reservation** owns SeatHold, SeatHoldItem, expiry/owner checks, and hold status. It does not mutate SessionSeat or Booking.
-- **Booking** owns Booking, BookingItem, historical totals, and booking status. Its factory shares one clock reading with the hold's internal validation and reads snapshots without mutating that aggregate. It does not know Payment objects or provider behavior.
-- **Payment** owns payment attempt identity, amount/key, provider reference, and result guards. It never confirms/cancels a booking itself.
-- **Catalogue** continues to own SessionSeat representation. No seat mutation/concurrency method is added.
-
-API registers TimeProvider.System as the singleton clock. Entities receive TimeProvider per operation and do not retain it. Future application handlers should inject that registration.
-
-Application is responsible for future transactions spanning owners, authoritative deadlines/identities, amount/reference checks, payment deduplication, and atomic seat updates. Infrastructure will implement persistence/provider adapters; API will enforce authentication and map errors. Beyond clock registration, no application handlers or infrastructure adapters are implemented, and no new deployables are added.
-
-Notification, refund processing, Outbox, and consumers are deferred. Existing PostgreSQL is not called by these methods. No Redis/RabbitMQ/Mailpit service or human ownership assignment is introduced.
+All modules remain in the existing application and assembly dependency structure. The API hosts the hold expiry worker. No frontend, provider adapter, Redis, messaging integration, refund flow or new deployable is added.

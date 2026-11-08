@@ -26,3 +26,9 @@ All six are IEntityTypeConfiguration implementations discovered by the shared co
 - [SessionSeatConfiguration](../../../src/TicketBooking.Infrastructure/Persistence/Configurations/SessionSeatConfiguration.cs): SessionSeats table, required Money complex value, restrictive session/seat references, unique session/seat pair and application-managed concurrency token.
 
 The existing schema migration and snapshot include these fields; adding a duplicate table-creation or empty migration is unnecessary. The model-snapshot check and four-state six-entity round-trip test now explicitly guard this requested mapping scope.
+
+## Hold configurations
+
+[SeatHoldConfiguration](../../../src/TicketBooking.Infrastructure/Persistence/Configurations/SeatHoldConfiguration.cs) maps the caller-supplied hold key, required total Money value, restrictive SessionId foreign key and restrictive item relationship. EF populates the private `items` backing field, preserving the read-only public collection. [SeatHoldItemConfiguration](../../../src/TicketBooking.Infrastructure/Persistence/Configurations/SeatHoldItemConfiguration.cs) maps the composite (SeatHoldId, SessionSeatId) key, restrictive inventory reference and independent price snapshot. Both configurations are registered through the context's assembly scan.
+
+The existing AddDomainForeignKeysAndUniqueConstraints migration creates both tables and their indexes; its Down removes items before holds. The snapshot already contains both mappings. No additional migration is required for this mapping request. `PostgresPersistenceTests.SeatHoldRoundTrip_PreservesOwnershipItemsTotalDeadlineAndStatus` exercises every hold status with two differently priced items after clearing tracking.

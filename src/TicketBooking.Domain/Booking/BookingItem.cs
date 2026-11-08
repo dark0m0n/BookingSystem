@@ -20,4 +20,16 @@ public sealed class BookingItem
     public Guid BookingId { get; private set; }
     public Guid SessionSeatId { get; private set; }
     public Money PriceSnapshot { get; private set; } = null!;
+    public long? AllocationVersion { get; private set; }
+
+    public void CaptureAllocationVersion(long version)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(version, 1);
+        if (AllocationVersion is not null)
+        {
+            throw new InvalidOperationException("The allocation version has already been captured.");
+        }
+
+        AllocationVersion = version;
+    }
 }

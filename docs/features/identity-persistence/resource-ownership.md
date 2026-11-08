@@ -1,6 +1,6 @@
 # Resource ownership
 
-Status: **implemented** for reusable Domain/Application checks and the HTTP caller adapter; **planned** for business endpoint wiring and refund-specific traversal. Working tree inspected. No hold, booking, payment or refund HTTP routes are introduced by this step.
+Status: **implemented** for reusable Domain/Application checks and the HTTP caller adapter; **implemented** for customer hold creation/GET/DELETE wiring; **planned** for booking/payment endpoints and refund-specific traversal. Working tree inspected. The customer hold routes now apply these checks; booking/payment/refund routes remain absent.
 
 ## Authority and owner resolution
 
@@ -17,7 +17,7 @@ Never authorize from a submitted UserId, owner ID, booking number, provider refe
 
 ## Handler contract
 
-Future customer handlers must apply the Customer policy, load server resources, invoke the scoped [ResourceOwnershipService](../../../src/TicketBooking.Application/Identity/ResourceOwnershipService.cs), then apply lifecycle/deadline rules before any mutation, save, provider call or resource DTO return:
+Customer handlers must apply the Customer policy, load server resources, invoke the scoped [ResourceOwnershipService](../../../src/TicketBooking.Application/Identity/ResourceOwnershipService.cs), then apply lifecycle/deadline rules before any mutation, save, provider call or resource DTO return:
 
 ```csharp
 // Inside a Customer-protected handler, after loading payment and its actual booking:
@@ -33,13 +33,13 @@ Role permission and resource ownership are cumulative. Admin satisfies Customer 
 
 - Missing/unusable caller: AuthenticationRequiredException → HTTP 401 `unauthorized`. Protected routes challenge anonymous/invalid bearer credentials before their handler executes.
 - Another owner or mismatched payment/booking link: DomainRuleException(ResourceNotOwned) → HTTP 403 `resource_not_owned`, with no owner identifiers in its public detail. This preserves the existing error contract; it does not promise existence-hiding 404 behavior.
-- Missing resource: the future loader must return 404 `not_found`; the check accepts loaded resources and does not decide lookup outcomes. Null arguments are programming errors.
+- Missing resource: the loader must return 404 `not_found`; the check accepts loaded resources and does not decide lookup outcomes. Null arguments are programming errors.
 - Checks are read-only and perform no I/O. They create no transaction, retry or lock. Coordinate server loading, business rules and ownership-changing writes in the operation's transaction; retain SessionSeat version checks. No owner reassignment workflow currently exists.
 
 No EF model, migration, persisted owner column or account FK changes are needed. Refund eligibility, refund state transitions and refund/provider authentication remain future work; ownership alone cannot authorize a provider callback or process a refund.
 
 ## Verification
 
-[Application tests](../../../tests/TicketBooking.Application.Tests/ResourceOwnershipServiceTests.cs) exercise owner/other/missing callers across all three implemented resource adapters, mismatched payment parents, unchanged state on rejection and lifecycle rules after authorization. [Domain tests](../../../tests/TicketBooking.Domain.Tests/ResourceOwnershipTests.cs) cover ID equality and empty IDs. [HTTP caller tests](../../../tests/TicketBooking.IntegrationTests/HttpCurrentUserTests.cs) cover claim/query confusion and ambiguous subjects. [JWT HTTP tests](../../../tests/TicketBooking.IntegrationTests/JwtBearerValidationTests.cs) exercise the registered services with signed tokens, customer/Admin ownership, anonymous challenges and safe 401/403 codes on a test-only route. No business endpoint or refund end-to-end authorization is claimed.
+[Application tests](../../../tests/TicketBooking.Application.Tests/ResourceOwnershipServiceTests.cs) exercise owner/other/missing callers across all three implemented resource adapters, mismatched payment parents, unchanged state on rejection and lifecycle rules after authorization. [Domain tests](../../../tests/TicketBooking.Domain.Tests/ResourceOwnershipTests.cs) cover ID equality and empty IDs. [HTTP caller tests](../../../tests/TicketBooking.IntegrationTests/HttpCurrentUserTests.cs) cover claim/query confusion and ambiguous subjects. [JWT HTTP tests](../../../tests/TicketBooking.IntegrationTests/JwtBearerValidationTests.cs) exercise the registered services with signed tokens, customer/Admin ownership, anonymous challenges and safe 401/403 codes on a test-only route. PostgreSQL HTTP tests in AuthEndpointsTests.HoldOwnership now verify owner-only hold history/cancellation and Customer/Admin denial without mutation. Refund end-to-end authorization remains absent.
 
 Verification run: all 421 tests passed with disposable PostgreSQL enabled, with no skipped tests. Formatting passed for this task's changed code files; all nine feature bundles passed JSON/code-anchor/local-link validation.

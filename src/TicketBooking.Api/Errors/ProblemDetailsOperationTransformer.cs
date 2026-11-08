@@ -11,7 +11,7 @@ public sealed class ProblemDetailsOperationTransformer : IOpenApiOperationTransf
     {
         var path = context.Description.RelativePath ?? "";
         if (!(path.StartsWith("api/admin/", StringComparison.Ordinal) || path.StartsWith("api/events", StringComparison.Ordinal) ||
-            path.StartsWith("api/sessions", StringComparison.Ordinal)) || operation.Responses is null) return Task.CompletedTask;
+            path.StartsWith("api/sessions", StringComparison.Ordinal) || path.StartsWith("api/holds/", StringComparison.Ordinal)) || operation.Responses is null) return Task.CompletedTask;
         foreach (var (key, value) in operation.Responses)
         {
             if (!int.TryParse(key, NumberStyles.None, CultureInfo.InvariantCulture, out var status) || status < 400 ||
@@ -20,10 +20,21 @@ public sealed class ProblemDetailsOperationTransformer : IOpenApiOperationTransf
             var error = ApiErrorCatalog.ForStatus(status);
             response.Description = $"{error.Title}. ProblemDetails includes type, title, status, instance, code and traceId." +
                 (status == 400 ? " Validation failures include camelCase field errors; malformed JSON/binding failures may omit errors." : "");
+            if (status == 409 && path.EndsWith("/holds", StringComparison.Ordinal))
+                response.Description += " Hold creation uses seat_not_available for unavailable/stale inventory, hold_expired if allocation outlives the deadline, and conflict for ineligible sessions or prices.";
+            if (path.StartsWith("api/holds/", StringComparison.Ordinal))
+            {
+                if (status == 403) response.Description += " A different owner, including an Admin, receives resource_not_owned.";
+                if (status == 409) response.Description += " Cancellation uses hold_expired, hold_not_active, or seat_not_available; all releases and the status transition roll back together.";
+            }
             var example = new JsonObject
             {
-                ["type"] = $"urn:ticketbooking:error:{error.Code}", ["title"] = error.Title, ["status"] = status,
-                ["instance"] = "/" + path, ["code"] = error.Code, ["traceId"] = "example-trace-id"
+                ["type"] = $"urn:ticketbooking:error:{error.Code}",
+                ["title"] = error.Title,
+                ["status"] = status,
+                ["instance"] = "/" + path,
+                ["code"] = error.Code,
+                ["traceId"] = "example-trace-id"
             };
             if (status == 400) example["errors"] = new JsonObject { ["field"] = new JsonArray("Invalid value.") };
             else example["detail"] = error.Detail;

@@ -54,3 +54,19 @@ SeedCustomerAndAdminRoles upserts Customer/CUSTOMER and Admin/ADMIN into AspNetR
 ## Venue/catalogue verification scope
 
 The six-entity PostgreSQL round-trip test reloads Venue, Auditorium, Seat, Event, Session and SessionSeat after clearing EF tracking. It verifies all scalar values and parent IDs, Unicode text, nondefault enum values, interval duration, UTC-normalized session timestamps, numeric price/currency, initial concurrency version and each Available/Held/Booked/Unavailable inventory status. Existing tests separately verify uniqueness, restrictive deletion, foreign keys and concurrency. A metadata test asserts no pending model changes against the checked-in migration snapshot. No new migration or production schema change is introduced by this verification.
+
+## Hold mapping verification scope
+
+The hold round-trip test covers Active, Converted, Cancelled and Expired states; hold/session/user identifiers; the original UTC expiry; a 19.75 UAH total from 12.50 and 7.25 UAH items; each item's hold/inventory identifiers and price; and the read-only collection after materialization. Transitions use the domain APIs and a deterministic clock. Existing tests cover restrictive foreign keys, duplicate item keys, independent historical snapshots and migration/model consistency. This work retains the existing schema and intentionally introduces no duplicate or empty migration.
+
+## Customer hold allocation versions
+
+[AddHoldItemAllocationVersion](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261107231200_AddHoldItemAllocationVersion.cs) adds nullable bigint SeatHoldItems.AllocationVersion and a positive-or-null check. Existing rows retain null (unknown) tokens; the customer hold endpoint captures returned claim versions for new items in the same transaction as inventory allocation. This additive migration follows the earlier mapping-only verification above. See the [hold HTTP contract](../reservation-booking-payment/hold-http-contract.md).
+
+## Active-hold expiry scan index
+
+[IndexActiveHoldExpirations](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261107235332_IndexActiveHoldExpirations.cs) adds nonunique IX_SeatHolds_ExpiresAt_Id on (ExpiresAt, Id) filtered to Status = 0. It supports the bounded due-Active-hold keyset scan without changing history or ownership data. Model/index metadata, snapshot consistency and migration application are exercised by isolated PostgreSQL tests. The API does not apply this migration automatically.
+
+## Booking transfer tokens and hold transition concurrency
+
+[AddBookingItemAllocationVersion](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261108003652_AddBookingItemAllocationVersion.cs) adds nullable bigint BookingItems.AllocationVersion with CK_BookingItems_AllocationVersion_Positive. Existing rows retain null/unknown ownership evidence. New HoldConversionService bookings capture returned Held → Held transfer versions independently of source hold tokens. The migration target/snapshot also records SeatHold.Status as an EF concurrency token (no column change): stale tracked writes compare original state and roll back on mismatch. See [cleanup/conversion rules](../reservation-booking-payment/hold-cleanup-conversion.md).

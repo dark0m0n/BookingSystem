@@ -21,7 +21,9 @@ using Npgsql;
 using TicketBooking.Api.Administration;
 using TicketBooking.Api.Auth;
 using TicketBooking.Api.Catalogue;
+using TicketBooking.Api.Configuration;
 using TicketBooking.Api.Errors;
+using TicketBooking.Api.Reservation;
 using TicketBooking.Api.Validation;
 using TicketBooking.Contracts.Auth;
 using TicketBooking.Infrastructure.Identity;
@@ -62,11 +64,16 @@ public partial class AuthEndpointsTests : IAsyncLifetime
         builder.Services.AddSingleton(_ => NpgsqlDataSource.Create(testConnection));
         builder.Services.AddDbContext<TicketBookingDbContext>((services, options) =>
             options.UseNpgsql(services.GetRequiredService<NpgsqlDataSource>())
-            .AddInterceptors(refreshWriteFailure, logoutCommitFailure, customerRoleWriteFailure, adminInventoryWriteFailure));
+            .AddInterceptors(refreshWriteFailure, logoutCommitFailure, customerRoleWriteFailure, adminInventoryWriteFailure, holdWriteFailure, firstHoldClaim, parallelHoldReads, overlapRead, conversionCommit));
         builder.Services.AddTicketBookingIdentity().AddSignInManager();
         builder.Services.AddTicketBookingAuthentication(builder.Configuration);
         builder.Services.AddApiErrors();
         builder.Services.AddCatalogueValidation();
+        builder.Services.AddHoldValidation();
+        builder.Services.AddBookingTiming(builder.Configuration);
+        builder.Services.AddHoldExpiryProcessing(builder.Configuration);
+        builder.Services.AddScoped<SessionSeatAllocationWriter>();
+        builder.Services.AddScoped<HoldConversionService>();
         builder.Services.AddDocumentedOpenApi();
         app = builder.Build();
         app.UseExceptionHandler();
@@ -76,11 +83,17 @@ public partial class AuthEndpointsTests : IAsyncLifetime
         app.MapAuthEndpoints();
         app.MapAdminCatalogueEndpoints();
         app.MapCatalogueEndpoints();
+        app.MapHoldEndpoints();
         app.MapOpenApi();
         app.MapGet("/test/protected", (ClaimsPrincipal user) => Results.Ok(new { subject = user.FindFirst("sub")!.Value }))
             .RequireAuthorization();
         app.MapGet("/test/admin", () => Results.NoContent()).RequireAuthorization(AuthorizationPolicies.Admin);
         app.MapGet("/test/customer", () => Results.NoContent()).RequireAuthorization(AuthorizationPolicies.Customer);
+        app.MapPost("/test/holds/{holdId:guid}/convert", async (Guid holdId, HoldConversionService conversion, CancellationToken ct) =>
+        {
+            var booking = await conversion.ConvertAsync(holdId, Guid.NewGuid(), "BK-" + Guid.NewGuid().ToString("N"), ct);
+            return booking is null ? Results.NotFound() : Results.Ok(new { booking.Id });
+        }).RequireAuthorization(AuthorizationPolicies.Customer).ExcludeFromDescription();
         await using (var scope = app.Services.CreateAsyncScope())
         {
             await scope.ServiceProvider.GetRequiredService<TicketBookingDbContext>().Database.MigrateAsync();

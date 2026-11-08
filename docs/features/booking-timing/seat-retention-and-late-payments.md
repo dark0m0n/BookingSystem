@@ -1,6 +1,6 @@
 # Seat retention after hold conversion
 
-Decision: **retain seats until the booking's captured PaymentDeadline**. The policy is decided; allocation transfer, database expiry, and compensation are **planned**, not implemented. Working tree inspected on top of `5ba7f54`, including the existing uncommitted timing/Money work.
+Decision: **retain seats until the booking's captured PaymentDeadline**. The policy is decided; hold-to-booking allocation transfer is implemented by HoldConversionService; pending-booking database expiry and compensation remain **planned**. Working tree inspected on top of `5ba7f54`, including the existing uncommitted timing/Money work.
 
 ## Retention window
 
@@ -14,7 +14,7 @@ PaymentDeadline = min(Booking.CreatedAt + PaymentCompletionWindow, SessionStarts
 
 The default is 15 minutes from booking creation, capped at session start. It is independent of the original hold's ExpiresAt after conversion. There is no extra grace period. Starting/retrying a payment, receiving Pending, or changing configuration does not reset the deadline. A failed attempt also leaves the booking's allocation intact until its deadline, allowing a new attempt under the same cutoff; the failed attempt itself never reopens.
 
-Example with a session at 20:00 UTC: a hold created at 18:00 expires at 18:10. Conversion and booking creation at 18:08 capture a payment deadline of 18:23. The booking retains the seats after 18:10, until confirmation or expiry at 18:23. Conversion must complete the validity check strictly before the hold cutoff. The existing separate domain methods do not implement this transaction.
+Example with a session at 20:00 UTC: a hold created at 18:00 expires at 18:10. Conversion and booking creation at 18:08 capture a payment deadline of 18:23. The booking retains the seats after 18:10, until confirmation or expiry at 18:23. Conversion must complete the validity check strictly before the hold cutoff. HoldConversionService now implements this transaction using the shared hold lock and new BookingItem transfer tokens; the separate domain factory alone does not.
 
 ## Expiry and allocation release
 
@@ -67,6 +67,6 @@ The booking remains Expired or Cancelled after compensating its late payment. A 
 - [Payment](../../../src/TicketBooking.Domain/Payment/Payment.cs) records Succeeded/Failed and identical same-reference replays independently of booking state. It does not confirm, release, or refund.
 - [BookingTimingPolicyTests](../../../tests/TicketBooking.Domain.Tests/BookingTimingPolicyTests.cs) covers deadline guards; [SeatHoldTests](../../../tests/TicketBooking.Domain.Tests/SeatHoldTests.cs) covers converted/terminal rejection. Test source was inspected, not executed for this documentation-only change.
 
-No allocation-owner mapping, durable source-hold correlation, confirming-payment association, worker, lazy-expiry handler, transaction coordinator, webhook, reconciliation record, refund, or messaging implementation exists. SessionSeat now has private persistence setters, relational identity constraints, and [version-fenced allocation writes](../session-seat-concurrency/FEATURE.md). These provide row-level checks, including Held→Held transfer; owner links and the full transaction/worker remain absent. The planned race/release policy above is not an implemented double-booking guarantee.
+Customer hold creation/cancellation and a bounded Active-hold expiry worker now use persisted hold-item claim versions and atomic release transactions. Server hold conversion now transfers allocations and consumes the hold atomically. Durable booking source-hold replay/confirming-payment links, pending-booking expiry, lazy expiry, provider reconciliation, refunds and messaging remain absent. SessionSeat now has private persistence setters, relational identity constraints, and [version-fenced allocation writes](../session-seat-concurrency/FEATURE.md). These provide row-level checks, including Held→Held transfer; hold-item owner/token links and Active-hold expiry are implemented; payment/confirmation transactions and pending-booking expiry remain absent. The planned race/release policy above is not an implemented double-booking guarantee.
 
-Future acceptance checks must cover conversion surviving original hold expiry, retry without deadline extension, atomic expiry/release, simultaneous expiry/callback, slow lock acquisition, duplicate callbacks after confirmation, compensation exactly once, and a late callback after another customer acquired the released seat. These cross-request tests are not implemented.
+Future acceptance checks must cover conversion surviving original hold expiry, retry without deadline extension, atomic expiry/release, simultaneous expiry/callback, slow lock acquisition, duplicate callbacks after confirmation, compensation exactly once, and a late callback after another customer acquired the released seat. Cleanup/conversion race tests now cover the original hold expiry retaining booking allocations and rollback across a late conversion. Provider callback/compensation and pending-booking expiry race tests remain unimplemented.

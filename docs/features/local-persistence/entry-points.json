@@ -130,11 +130,51 @@
       "path": "src/TicketBooking.Infrastructure/Persistence/Configurations/SessionConfiguration.cs",
       "symbol": "public sealed class SessionConfiguration",
       "description": "Maps sessions with event/auditorium references and scalar UTC timestamps/status."
+    },
+    {
+      "id": "seat-hold-mapping",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Configurations/SeatHoldConfiguration.cs",
+      "symbol": "public sealed class SeatHoldConfiguration",
+      "description": "Maps holds, stored ownership/deadline/total, restrictive session and item relationships, and private item backing field."
+    },
+    {
+      "id": "seat-hold-item-mapping",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Configurations/SeatHoldItemConfiguration.cs",
+      "symbol": "public sealed class SeatHoldItemConfiguration",
+      "description": "Maps the parent-scoped composite key, restrictive inventory reference and independent price snapshot."
+    },
+    {
+      "id": "hold-allocation-version-migration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261107231200_AddHoldItemAllocationVersion.cs",
+      "symbol": "AddHoldItemAllocationVersion",
+      "description": "Adds nullable hold-item fencing tokens with a positive-or-null constraint, preserving legacy rows."
+    },
+    {
+      "id": "hold-expiry-index-migration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261107235332_IndexActiveHoldExpirations.cs",
+      "symbol": "IndexActiveHoldExpirations",
+      "description": "Adds the filtered deadline/ID index for bounded Active-hold expiry scans without changing data."
+    },
+    {
+      "id": "booking-allocation-token-migration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261108003652_AddBookingItemAllocationVersion.cs",
+      "symbol": "AddBookingItemAllocationVersion",
+      "description": "Adds nullable booking transfer claim tokens/check constraint and captures hold-status concurrency metadata."
     }
   ],
   "unresolved": [
     "Business UserId foreign keys/backfill and account-deletion compatibility remain deferred despite the new Identity model.",
-    "Cross-row auditorium/session consistency, allocation ownership, transactional allocation workflows are not implemented; version-fenced row writes now exist.",
+    "Storage constraints alone do not enforce cross-row auditorium/session consistency. Hold HTTP creation/cancellation and system expiry now coordinate ownership, validation and fenced writes; booking/payment transactions remain absent.",
     "Development/deployed database migration state has not been verified; only an isolated test database was migrated."
   ]
 }

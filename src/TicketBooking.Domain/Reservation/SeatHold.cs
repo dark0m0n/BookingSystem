@@ -88,6 +88,9 @@ public sealed class SeatHold
 
     public void Cancel(Guid userId, TimeProvider timeProvider)
     {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        ResourceOwnership.EnsureOwner(userId, UserId);
+        if (Status == SeatHoldStatus.Cancelled) return;
         EnsureCanConvert(userId, timeProvider);
         Status = SeatHoldStatus.Cancelled;
     }
@@ -95,6 +98,7 @@ public sealed class SeatHold
     public void Expire(TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
+        if (Status == SeatHoldStatus.Expired) return;
         EnsureActive();
         var now = timeProvider.GetUtcNow().ToUniversalTime();
 

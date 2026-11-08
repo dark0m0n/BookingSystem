@@ -114,12 +114,90 @@
       "path": "src/TicketBooking.Api/Program.cs",
       "symbol": "builder.Services.AddSingleton<TimeProvider>(TimeProvider.System)",
       "description": "Registers the injectable system UTC clock for future application handlers."
+    },
+    {
+      "id": "hold-http-create",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Reservation/HoldEndpoints.cs",
+      "symbol": "CreateAsync",
+      "description": "Authenticated atomic hold creation with authoritative inventory, pricing and fenced claims.",
+      "route": "/api/sessions/{sessionId:guid}/holds",
+      "method": "POST"
+    },
+    {
+      "id": "hold-http-validator",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Validation/HoldValidation.cs",
+      "symbol": "CreateHoldRequestValidator",
+      "description": "Validates bounded, distinct and nonempty session-seat selections."
+    },
+    {
+      "id": "hold-allocation-version",
+      "app": "TicketBooking.Domain.Reservation",
+      "kind": "service",
+      "path": "src/TicketBooking.Domain/Reservation/SeatHoldItem.cs",
+      "symbol": "CaptureAllocationVersion",
+      "description": "Captures the successful allocation fencing token once."
+    },
+    {
+      "id": "hold-http-get",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Reservation/HoldEndpoints.cs",
+      "symbol": "GetAsync",
+      "description": "Returns stored hold snapshots only after checking persisted ownership.",
+      "route": "/api/holds/{holdId:guid}",
+      "method": "GET"
+    },
+    {
+      "id": "hold-http-delete",
+      "app": "TicketBooking.Api",
+      "kind": "api",
+      "path": "src/TicketBooking.Api/Reservation/HoldEndpoints.cs",
+      "symbol": "CancelAsync",
+      "description": "Cancels an owned active hold before expiry and releases retained-version allocations atomically.",
+      "route": "/api/holds/{holdId:guid}",
+      "method": "DELETE"
+    },
+    {
+      "id": "hold-expiry-worker",
+      "app": "TicketBooking.Api",
+      "kind": "job",
+      "path": "src/TicketBooking.Api/Reservation/HoldExpiryWorker.cs",
+      "symbol": "ExecuteAsync",
+      "description": "Hosted immediate/polling bounded expiry passes with cancellation and scan-failure handling."
+    },
+    {
+      "id": "hold-expiry-batch",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Reservation/HoldExpiryBatchProcessor.cs",
+      "symbol": "ProcessBatchAsync",
+      "description": "Bounded due-hold keyset scan and isolated per-hold scopes without poison-record starvation."
+    },
+    {
+      "id": "hold-expiry-release",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/HoldExpiryReleaser.cs",
+      "symbol": "ExpireAsync",
+      "description": "Locks/rechecks and atomically expires one active hold with retained-version releases."
+    },
+    {
+      "id": "hold-persisted-conversion",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/HoldConversionService.cs",
+      "symbol": "ConvertAsync",
+      "description": "Serializes owner-authorized conversion against cleanup and atomically persists booking, token transfers and Converted status."
     }
   ],
   "unresolved": [
-    "Application transactions, full allocation transactions, endpoint authorization, and provider/webhook processing are not implemented.",
+    "Server hold conversion is implemented; public booking/payment endpoints and payment/confirmation/provider transactions remain absent.",
     "Refund and messaging entities/transitions are deferred to their planned phases.",
-    "Absolute timing deadlines are mapped; expiration workers and allocation release remain absent.",
-    "Decided post-conversion retention and late-result policy still needs allocation ownership/transfer, atomic expiry/release, and durable reconciliation/compensation; no executable entries exist for those workflows."
+    "Absolute timing deadlines are mapped; Active hold expiry and owner cancellation release are implemented; pending-booking expiry remains absent.",
+    "Decided post-conversion retention and late-result policy has hold-to-booking token transfer; pending-booking expiry/release still needs implementation, and durable reconciliation/compensation; no executable entries exist for those workflows."
   ]
 }

@@ -116,6 +116,26 @@ public class PersistenceModelTests
         Assert.Equal(ValueGenerated.Never, version.ValueGenerated);
     }
 
+    [Fact]
+    public void HoldExpiryIndex_OrdersActiveHoldsByDeadlineAndId()
+    {
+        using var context = CreateContext();
+        var index = Assert.Single(context.Model.FindEntityType(typeof(SeatHold))!.GetIndexes(), value =>
+            value.Properties.Select(property => property.Name).SequenceEqual(["ExpiresAt", "Id"]));
+        Assert.Equal("\"Status\" = 0", index.GetFilter());
+        Assert.False(index.IsUnique);
+    }
+
+    [Fact]
+    public void HoldStatus_IsAConcurrencyTokenAndBookingClaimVersionIsNullable()
+    {
+        using var context = CreateContext();
+        Assert.True(context.Model.FindEntityType(typeof(SeatHold))!.FindProperty(nameof(SeatHold.Status))!.IsConcurrencyToken);
+        var claim = context.Model.FindEntityType(typeof(BookingItem))!.FindProperty(nameof(BookingItem.AllocationVersion))!;
+        Assert.True(claim.IsNullable);
+        Assert.Equal(typeof(long?), claim.ClrType);
+    }
+
     private static void AssertUnique(IModel model, Type type, params string[] properties) =>
         Assert.Contains(model.FindEntityType(type)!.GetIndexes(), index => index.IsUnique &&
             index.Properties.Select(property => property.Name).SequenceEqual(properties));

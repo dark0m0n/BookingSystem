@@ -77,7 +77,7 @@ public class SeatHoldTests
     [InlineData(SeatHoldStatus.Converted)]
     [InlineData(SeatHoldStatus.Cancelled)]
     [InlineData(SeatHoldStatus.Expired)]
-    public void TerminalHold_RejectsEveryFurtherTransition(SeatHoldStatus terminal)
+    public void TerminalHold_RejectsOtherTransitionsAndAllowsMatchingCleanupReplay(SeatHoldStatus terminal)
     {
         var hold = LifecycleTestData.Hold();
         switch (terminal)
@@ -96,9 +96,11 @@ public class SeatHoldTests
         var expectedError = terminal == SeatHoldStatus.Expired ? DomainError.HoldExpired : DomainError.HoldNotActive;
         Assert.Equal(expectedError,
             Assert.Throws<DomainRuleException>(() => hold.Convert(hold.UserId, LifecycleTestData.Clock)).Error);
-        Assert.Equal(expectedError,
+        if (terminal == SeatHoldStatus.Cancelled) hold.Cancel(hold.UserId, LifecycleTestData.Clock);
+        else Assert.Equal(expectedError,
             Assert.Throws<DomainRuleException>(() => hold.Cancel(hold.UserId, LifecycleTestData.Clock)).Error);
-        Assert.Equal(expectedError,
+        if (terminal == SeatHoldStatus.Expired) hold.Expire(LifecycleTestData.At(hold.ExpiresAt));
+        else Assert.Equal(expectedError,
             Assert.Throws<DomainRuleException>(() => hold.Expire(LifecycleTestData.At(hold.ExpiresAt))).Error);
         Assert.Equal(terminal, hold.Status);
     }

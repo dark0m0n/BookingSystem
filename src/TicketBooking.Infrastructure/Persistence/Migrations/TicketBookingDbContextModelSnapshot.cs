@@ -219,6 +219,9 @@ namespace TicketBooking.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("SessionSeatId")
                         .HasColumnType("uuid");
 
+                    b.Property<long?>("AllocationVersion")
+                        .HasColumnType("bigint");
+
                     b.ComplexProperty(typeof(Dictionary<string, object>), "PriceSnapshot", "TicketBooking.Domain.Booking.BookingItem.PriceSnapshot#Money", b1 =>
                         {
                             b1.IsRequired();
@@ -239,7 +242,10 @@ namespace TicketBooking.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SessionSeatId");
 
-                    b.ToTable("BookingItems", (string)null);
+                    b.ToTable("BookingItems", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BookingItems_AllocationVersion_Positive", "\"AllocationVersion\" IS NULL OR \"AllocationVersion\" > 0");
+                        });
                 });
 
             modelBuilder.Entity("TicketBooking.Domain.Catalogue.Event", b =>
@@ -407,6 +413,7 @@ namespace TicketBooking.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<int>("Status")
+                        .IsConcurrencyToken()
                         .HasColumnType("integer");
 
                     b.Property<Guid>("UserId")
@@ -432,6 +439,9 @@ namespace TicketBooking.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SessionId");
 
+                    b.HasIndex("ExpiresAt", "Id")
+                        .HasFilter("\"Status\" = 0");
+
                     b.ToTable("SeatHolds", (string)null);
                 });
 
@@ -442,6 +452,9 @@ namespace TicketBooking.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("SessionSeatId")
                         .HasColumnType("uuid");
+
+                    b.Property<long?>("AllocationVersion")
+                        .HasColumnType("bigint");
 
                     b.ComplexProperty(typeof(Dictionary<string, object>), "PriceSnapshot", "TicketBooking.Domain.Reservation.SeatHoldItem.PriceSnapshot#Money", b1 =>
                         {
@@ -463,7 +476,10 @@ namespace TicketBooking.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SessionSeatId");
 
-                    b.ToTable("SeatHoldItems", (string)null);
+                    b.ToTable("SeatHoldItems", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_SeatHoldItems_AllocationVersion_Positive", "\"AllocationVersion\" IS NULL OR \"AllocationVersion\" > 0");
+                        });
                 });
 
             modelBuilder.Entity("TicketBooking.Domain.Venue.Auditorium", b =>

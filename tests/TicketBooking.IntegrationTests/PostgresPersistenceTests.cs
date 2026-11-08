@@ -80,6 +80,51 @@ public class PostgresPersistenceTests : IAsyncLifetime
             (storedInventory.SessionId, storedInventory.SeatId, storedInventory.Price, storedInventory.Status, storedInventory.Version));
     }
 
+    [PostgresTheory]
+    [InlineData(SeatHoldStatus.Active)]
+    [InlineData(SeatHoldStatus.Converted)]
+    [InlineData(SeatHoldStatus.Cancelled)]
+    [InlineData(SeatHoldStatus.Expired)]
+    public async Task SeatHoldRoundTrip_PreservesOwnershipItemsTotalDeadlineAndStatus(SeatHoldStatus status)
+    {
+        var inventory = await SeedInventory();
+        var secondSeat = new Seat(Guid.NewGuid(), inventory.Auditorium.Id, "A", 2);
+        var secondInventory = new SessionSeat(Guid.NewGuid(), inventory.Session.Id, secondSeat.Id, new Money(7.25m, "UAH"));
+        context.AddRange(secondSeat, secondInventory);
+        var hold = new SeatHold(Guid.NewGuid(), inventory.Session.Id, Guid.NewGuid(), inventory.Session.StartsAt,
+            [inventory.Inventory, secondInventory], TimeProviderAtNow(), Timing);
+        switch (status)
+        {
+            case SeatHoldStatus.Converted:
+                hold.Convert(hold.UserId, TimeProviderAtNow());
+                break;
+            case SeatHoldStatus.Cancelled:
+                hold.Cancel(hold.UserId, TimeProviderAtNow());
+                break;
+            case SeatHoldStatus.Expired:
+                hold.Expire(new FixedTimeProvider(hold.ExpiresAt));
+                break;
+        }
+
+        context.SeatHolds.Add(hold);
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var stored = await context.SeatHolds.Include(value => value.Items).SingleAsync(value => value.Id == hold.Id);
+
+        Assert.Equal(hold.SessionId, stored.SessionId);
+        Assert.Equal(hold.UserId, stored.UserId);
+        Assert.Equal(status, stored.Status);
+        Assert.Equal(hold.ExpiresAt, stored.ExpiresAt);
+        Assert.Equal(TimeSpan.Zero, stored.ExpiresAt.Offset);
+        Assert.Equal(new Money(19.75m, "UAH"), stored.TotalAmount);
+        Assert.Equal(2, stored.Items.Count);
+        Assert.All(stored.Items, item => Assert.Equal(hold.Id, item.SeatHoldId));
+        Assert.Equal(inventory.Inventory.Price, stored.Items.Single(item => item.SessionSeatId == inventory.Inventory.Id).PriceSnapshot);
+        Assert.Equal(secondInventory.Price, stored.Items.Single(item => item.SessionSeatId == secondInventory.Id).PriceSnapshot);
+        Assert.Throws<NotSupportedException>(() => ((IList<SeatHoldItem>)stored.Items).Clear());
+    }
+
     [PostgresFact]
     public async Task MigrationAndRoundTrip_PreserveSnapshotsDeadlinesAndReadOnlyCollections()
     {
@@ -317,6 +362,25 @@ public class PostgresPersistenceTests : IAsyncLifetime
         Assert.Equal(parent == "SeatHold" ? "PK_SeatHoldItems" : "PK_BookingItems", exception.ConstraintName);
     }
 
+    [PostgresTheory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task HoldItemAllocationVersion_RejectsNonpositiveTokensInPostgres(long version)
+    {
+        var inventory = await SeedInventory();
+        var hold = CreateHold(inventory);
+        context.SeatHolds.Add(hold);
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+        Assert.Null((await context.SeatHoldItems.SingleAsync()).AllocationVersion);
+
+        var exception = await Assert.ThrowsAsync<PostgresException>(() => context.Database.ExecuteSqlInterpolatedAsync(
+            $"UPDATE \"SeatHoldItems\" SET \"AllocationVersion\" = {version} WHERE \"SeatHoldId\" = {hold.Id}"));
+
+        Assert.Equal(PostgresErrorCodes.CheckViolation, exception.SqlState);
+        Assert.Equal("CK_SeatHoldItems_AllocationVersion_Positive", exception.ConstraintName);
+    }
+
     private async Task AssertConstraint(string sqlState, string constraint)
     {
         var exception = await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
@@ -346,9 +410,9 @@ public class PostgresPersistenceTests : IAsyncLifetime
 
     private static TimeProvider TimeProviderAtNow() => new FixedTimeProvider();
 
-    private sealed class FixedTimeProvider : TimeProvider
+    private sealed class FixedTimeProvider(DateTimeOffset? utcNow = null) : TimeProvider
     {
-        public override DateTimeOffset GetUtcNow() => Now;
+        public override DateTimeOffset GetUtcNow() => utcNow ?? Now;
     }
 
     private sealed record InventoryGraph(VenueEntity Venue, Auditorium Auditorium, Seat Seat, Event Event, Session Session, SessionSeat Inventory);
