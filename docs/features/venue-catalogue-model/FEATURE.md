@@ -46,3 +46,7 @@ Layout changes and session creation serialize on the auditorium row. Once any se
 - [Admin HTTP contract and example setup](admin-http-contract.md)
 
 Verification: **142 targeted catalogue HTTP/PostgreSQL cases across 58 methods passed with zero skips**, including seven new regressions. Coverage includes all five requested areas, all 18 Admin routes, combined filters/pagination, compound errors, credentials and seat-map limits/state/privacy. Tests used a disposable PostgreSQL 17 instance; the seeded local Compose database was untouched. See [coverage and run instructions](testing.md).
+
+## Seat-availability cache
+
+Implemented in the inspected working tree: larger public seat maps can reuse Redis projections under keys derived from current inventory IDs/version tokens. Small maps and allocation decisions remain uncached. Successful inventory commits logically invalidate old revisions for hold creation, cancellation, expiry, confirmation and release. See [scope, configuration and invalidation](seat-availability-caching.md); the complete booking confirmation workflow remains unimplemented.

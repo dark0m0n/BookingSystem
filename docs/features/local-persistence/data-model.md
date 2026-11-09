@@ -70,3 +70,5 @@ The hold round-trip test covers Active, Converted, Cancelled and Expired states;
 ## Booking transfer tokens and hold transition concurrency
 
 [AddBookingItemAllocationVersion](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261108003652_AddBookingItemAllocationVersion.cs) adds nullable bigint BookingItems.AllocationVersion with CK_BookingItems_AllocationVersion_Positive. Existing rows retain null/unknown ownership evidence. New HoldConversionService bookings capture returned Held → Held transfer versions independently of source hold tokens. The migration target/snapshot also records SeatHold.Status as an EF concurrency token (no column change): stale tracked writes compare original state and roll back on mismatch. See [cleanup/conversion rules](../reservation-booking-payment/hold-cleanup-conversion.md).
+
+RedisCache timeout settings add no persistence fields, tables or migrations. Existing hold/seat-map payloads and deadlines/revisions are unchanged. Timeout/late-operation handling changes only cache access and transport configuration; PostgreSQL remains the source of truth. See [settings](redis-timeouts.md).

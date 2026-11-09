@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using TicketBooking.Api.Reservation;
+using TicketBooking.Infrastructure.Caching;
 using TicketBooking.Infrastructure.Persistence;
 
 namespace TicketBooking.IntegrationTests;
@@ -38,6 +39,7 @@ public class HoldExpiryConfigurationTests
         services.AddDbContext<TicketBookingDbContext>(options => options.UseNpgsql("Host=localhost;Database=metadata_only;Username=test"));
         services.AddScoped<SessionSeatAllocationWriter>();
         services.AddHoldExpiryWorker(configuration);
+        services.AddHoldCaching(configuration);
         configuration["HoldExpiry:BatchSize"] = "3";
         configuration.Reload();
         using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });

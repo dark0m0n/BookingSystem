@@ -15,3 +15,10 @@ Developers need repeatable local persistence, and the database must reject dupli
 | BR-09 | A nonnull provider reference identifies one payment for the current single provider. | Filtered unique ProviderReference index; multiple nulls allowed. |
 
 Seat Row values are exact, case-sensitive labels; no trimming/case folding is introduced. Identity now has account tables, but business UserId references still have no FK; existing identities require a backfill/compatibility decision. Identity dependent rows use framework cascade deletion. Constraints do not implement authorization, session/auditorium consistency, globally unique active holds, or double-sale protection; those need further model/transaction work.
+
+## Redis resilience rules
+
+- RC-01: Bound every cache read/write/removal independently of provider cancellation support (RedisCacheTimeoutPolicy).
+- RC-02: Connection strings cannot disable the validated transport limits or enable disconnected command buffering (HoldCacheRegistration).
+- RC-03: Cache timeouts/unavailability fall back to PostgreSQL or skip post-commit updates; caller cancellation still propagates.
+- RC-04: Late cache operations never replace PostgreSQL ownership, state, deadline or inventory-version checks. See [policy and bounds](redis-timeouts.md).

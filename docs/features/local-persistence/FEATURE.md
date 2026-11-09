@@ -1,4 +1,6 @@
-# PostgreSQL persistence and constraints
+# Local infrastructure, PostgreSQL persistence and constraints
+
+Local Redis provisioning is implemented in the working tree: [Compose](../../../docker-compose.yml) defines Redis 8, a loopback-only configurable port, a named snapshot volume and a `redis-cli ping` health check. See [README Redis startup](../../../README.md#local-redis). Active hold response caching is implemented; see [cache behavior](../reservation-booking-payment/hold-caching.md); API health remains liveness-only. Compose configuration validation passed; container startup has not been verified.
 
 Status: **partial**. Local PostgreSQL provisioning, EF mappings, migration, foreign keys, unique indexes, and database round trips are implemented. Admin setup writes are implemented; customer booking workflows, durable allocation ownership and transactional booking operations remain absent. [Row-level concurrency](../session-seat-concurrency/FEATURE.md) now fences SessionSeat changes.
 
@@ -51,3 +53,9 @@ Admin venue/layout/event/session setup now uses this schema through [Admin-only 
 SeatHold and SeatHoldItem mappings and table creation already exist in the checked-in migration chain. The working-tree verification adds a focused four-state, two-item PostgreSQL round trip and indexes the configurations in [entry-points.json](entry-points.json). See [backend structure](backend-structure.md#hold-configurations) and [data model](data-model.md#hold-mapping-verification-scope). This scope does not add customer hold endpoints or change allocation workflows.
 
 Verification: all 44 targeted PersistenceModelTests and PostgresPersistenceTests cases passed with zero skips against fresh disposable PostgreSQL 17. This includes migration application, snapshot consistency, the four hold-state round trips and existing constraint/snapshot tests. Documentation entries, code anchors and local links validated.
+
+## Bounded Redis access
+
+Both caches now share validated per-operation, connection and command timeouts with typed database fallback. Defaults are 250 ms per cache await and 500 ms for transport timeouts. See [configuration, cancellation and late-operation behavior](redis-timeouts.md).
+
+The [cache verification matrix](cache-testing.md) records TTL, stale-data, invalidation, commit-order and outage coverage, including live Redis stale-payload checks and a real disconnected Redis client.

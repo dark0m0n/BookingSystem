@@ -10,3 +10,5 @@
 Constraint tests use their own database transaction for data and roll it back. Migrations are applied outside that transaction and remain in the disposable test database. Development database contents/migration history were not inspected or changed. CI uses a dedicated PostgreSQL service; API liveness remains independent of database readiness.
 
 A future handler must manage its transaction and expected conflicts; no generic retry, hold conversion, seat release, callback coordination, or HTTP conflict handling is implemented here. Ordinary docker compose down keeps the named development volume; explicit volume deletion remains destructive and is not a routine restart.
+
+Redis timeout flow (RC-01/02/03/04): validate bounded settings at registration → attempt cache I/O under the injected-clock operation deadline → return a hit or fall back to database reads on timeout/unavailability → commit authoritative work → attempt bounded cache fill/removal. Request cancellation propagates. An abandoned provider task may finish later, but database header/revision checks still apply. See [details](redis-timeouts.md).

@@ -26,3 +26,13 @@ Allocation conflicts (including unknown legacy tokens) are logged as warnings; u
 IndexActiveHoldExpirations adds IX_SeatHolds_ExpiresAt_Id over (ExpiresAt, Id), filtered to Status = 0. It changes no hold data or ownership tokens. Apply it with the existing README migration procedure. Owner GET may observe an elapsed Active hold before a worker pass commits; availability stays allocated until the release transaction commits. A server conversion service now uses that protocol; public booking endpoints, pending-booking expiry, refunds and providers remain separate work.
 
 Tests: AuthEndpointsTests.HoldExpiry uses real PostgreSQL plus manual time for exact expiry/session-start edges, bounded tied-deadline cursor batches, failed-record isolation/starvation, stale tokens, multi-worker skip-locked behavior, reacquisition fencing, shutdown and rollback. HoldExpiryConfigurationTests validates registration, bounded settings and scope lifetimes; PersistenceModelTests checks index/model metadata.
+
+## PostgreSQL authority and Redis independence
+
+The worker always discovers due Active holds from PostgreSQL `SeatHolds.ExpiresAt` using injected time. Cleanup rechecks stored state/deadline and retained allocation versions under database locks, then atomically commits Expired state and seat releases. Redis entries, TTLs, keyspace notifications and cache presence never select or authorize cleanup. No Redis expiry-notification configuration or subscription is required.
+
+Eviction or Redis TTL expiry before the captured database deadline cannot release seats. At/after the deadline, conversion/cancellation guards reject use even if cleanup has not run and cached Active data remains. Inventory stays Held until the release transaction commits; cache reads never infer availability from the absence of a key. The worker starts and polls even when Redis is unavailable, and post-commit cache-removal failures do not undo expiry/release. Revision-checked seat-map reads use the new inventory versions after release.
+
+`AuthEndpointsTests.CacheAuthority` covers missing, retained and unavailable cache data, one tick before/at/after expiry, conversion/cancellation rejection while cleanup lags, blocked competing claims, polling release without notifications, safe reacquisition and hosted-worker startup with all Redis operations failing. Tests use PostgreSQL plus manual time; no Redis server or notification listener participates.
+
+Verification: all 47 targeted expiration, deadline-use, cleanup/conversion and cache-authority cases passed with zero skips against disposable PostgreSQL 17, with no Redis server or expiry-notification listener involved. Compilation, changed-file formatting, documentation source anchors/links and whitespace checks passed.

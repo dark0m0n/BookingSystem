@@ -50,3 +50,10 @@ Names/title are capped at 200 characters, address 500, row 20, description 10000
 | BR-30 | Sample data is explicit and Development-only; normal startup does not seed or create users. | Program command dispatch; DevelopmentSampleDataCommand and DevelopmentSampleDataSeeder guards. |
 | BR-31 | Reserved root IDs identify sample venue/auditorium/movie without matching or overwriting unrelated names. Existing nonempty layouts and future inventory are preserved; archived/inconsistent sample graphs are refused. | DevelopmentSampleDataSeeder; command uses one transaction and a seed advisory lock. |
 | BR-32 | If no future Scheduled sample session exists, capture a new start about one UTC day ahead using injected TimeProvider, event duration and independent 150 UAH Available/version-zero inventory. Do not move historical sessions or rewrite reservations. | DevelopmentSampleDataSeeder.SeedAsync; auditorium/event lock order matches Admin scheduling. |
+
+## Seat-map cache rules
+
+- SC-01: Cache only successful public maps meeting the configured size threshold; keep small/error responses and all commands uncached (`GetSessionSeatsAsync`, `IsUseful`).
+- SC-02: Validate visibility, physical count and inventory revision from one database snapshot before a cached response (`GetSessionSeatsAsync`).
+- SC-03: Every supported inventory commit selects a new revision; rollbacks preserve it. Expiration time alone never releases inventory (`SessionSeatAllocationWriter`, tracked Version advancement).
+- SC-04: Redis failures must fall back to PostgreSQL; short TTL reclaims old generations without extending holds (`RedisSeatAvailabilityCache`). See [the invalidation table](seat-availability-caching.md).

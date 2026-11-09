@@ -1,11 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using TicketBooking.Application.Reservation;
 using TicketBooking.Domain.Catalogue;
 using TicketBooking.Domain.Reservation;
 
 namespace TicketBooking.Infrastructure.Persistence;
 
 /// <summary>One system expiry transaction. Call from a dedicated scope; never refresh claim tokens.</summary>
-public sealed class HoldExpiryReleaser(TicketBookingDbContext db, SessionSeatAllocationWriter writer, TimeProvider clock)
+public sealed class HoldExpiryReleaser(TicketBookingDbContext db, SessionSeatAllocationWriter writer, TimeProvider clock, IHoldCache cache)
 {
     public async Task<bool> ExpireAsync(Guid holdId, CancellationToken cancellationToken = default)
     {
@@ -38,6 +39,7 @@ public sealed class HoldExpiryReleaser(TicketBookingDbContext db, SessionSeatAll
         // If the session started during processing, roll back and reconsider with fresh time on a later scan.
         if (releasedStatus == SessionSeatStatus.Available && clock.GetUtcNow() >= session.StartsAt) return false;
         await transaction.CommitAsync(cancellationToken);
+        await cache.RemoveAsync(holdId, cancellationToken);
         return true;
     }
 }

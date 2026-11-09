@@ -10,3 +10,8 @@
 - **Observed configuration behavior (README):** Changing initialization credentials in .env does not update an existing PostgreSQL volume; keep API credentials aligned. Port conflicts require changing the host port/connection string together.
 
 Real customer endpoints, durable owner-linked allocation workflows, expiry workers, provider idempotency, refunds, backups, and retention policy are not implemented by these constraints. Developer/deployed database state was not changed or verified; only isolated PostgreSQL tests exercised the migration.
+
+- **Observed configuration:** Redis uses its default snapshot persistence in `redis_data`, without append-only persistence. Recent writes may not survive a restart; `docker compose down --volumes` deletes the snapshots. Redis has no password configured and its published port is bound to loopback. API `/health` does not inspect Redis. Runtime readiness is not verified in this change.
+
+- **Observed contract:** An operation timeout bounds the caller wait, not cancellation of an already-issued Redis command. Late writes/removals can still complete, and late faults are observed. Hold deadlines and seat-map revision/header checks prevent those operations from becoming inventory authority.
+- **Observed configuration:** Connection-string timeout values are overridden by RedisCache settings; a lookup miss plus fill can use two operation budgets. Tune validated settings and account separately for database work. See [bounds and fallback](redis-timeouts.md).

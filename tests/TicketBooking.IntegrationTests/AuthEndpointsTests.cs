@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -25,7 +26,9 @@ using TicketBooking.Api.Configuration;
 using TicketBooking.Api.Errors;
 using TicketBooking.Api.Reservation;
 using TicketBooking.Api.Validation;
+using TicketBooking.Application.Reservation;
 using TicketBooking.Contracts.Auth;
+using TicketBooking.Infrastructure.Caching;
 using TicketBooking.Infrastructure.Identity;
 using TicketBooking.Infrastructure.Persistence;
 using PostgresFact = TicketBooking.IntegrationTests.PostgresPersistenceTests.PostgresFactAttribute;
@@ -42,6 +45,7 @@ public partial class AuthEndpointsTests : IAsyncLifetime
     private string testConnection = null!;
     private readonly TestClock clock = new();
     private readonly RefreshWriteFailure refreshWriteFailure = new();
+    private readonly RecordingDistributedCache holdCacheStorage = new();
     private WebApplication app = null!;
     private HttpClient client = null!;
 
@@ -60,11 +64,15 @@ public partial class AuthEndpointsTests : IAsyncLifetime
             ["Jwt:AccessTokenMinutes"] = "15"
         });
         builder.Services.AddSingleton<TimeProvider>(clock);
+        builder.Services.AddSingleton<IDistributedCache>(holdCacheStorage);
+        builder.Services.AddRedisCachePolicy(builder.Configuration);
+        builder.Services.AddSingleton<IHoldCache, RedisHoldCache>();
+        builder.Services.AddSeatAvailabilityCaching(builder.Configuration);
         // Own this schema's pool so disposing the test host closes its idle connections.
         builder.Services.AddSingleton(_ => NpgsqlDataSource.Create(testConnection));
         builder.Services.AddDbContext<TicketBookingDbContext>((services, options) =>
             options.UseNpgsql(services.GetRequiredService<NpgsqlDataSource>())
-            .AddInterceptors(refreshWriteFailure, logoutCommitFailure, customerRoleWriteFailure, adminInventoryWriteFailure, holdWriteFailure, firstHoldClaim, parallelHoldReads, overlapRead, conversionCommit));
+            .AddInterceptors(refreshWriteFailure, logoutCommitFailure, customerRoleWriteFailure, adminInventoryWriteFailure, holdWriteFailure, firstHoldClaim, parallelHoldReads, overlapRead, conversionCommit, seatMapQueries, cacheCommitFailure));
         builder.Services.AddTicketBookingIdentity().AddSignInManager();
         builder.Services.AddTicketBookingAuthentication(builder.Configuration);
         builder.Services.AddApiErrors();

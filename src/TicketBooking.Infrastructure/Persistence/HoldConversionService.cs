@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TicketBooking.Application.Identity;
+using TicketBooking.Application.Reservation;
 using TicketBooking.Domain;
 using TicketBooking.Domain.Catalogue;
 using BookingEntity = TicketBooking.Domain.Booking.Booking;
@@ -8,7 +9,7 @@ namespace TicketBooking.Infrastructure.Persistence;
 
 /// <summary>Authoritative conversion command. Use a fresh scope and never save a booking/hold conversion separately.</summary>
 public sealed class HoldConversionService(TicketBookingDbContext db, SessionSeatAllocationWriter writer,
-    ResourceOwnershipService ownership, ICurrentUser currentUser, TimeProvider clock, BookingTimingPolicy timing)
+    ResourceOwnershipService ownership, ICurrentUser currentUser, TimeProvider clock, BookingTimingPolicy timing, IHoldCache cache)
 {
     public async Task<BookingEntity?> ConvertAsync(Guid holdId, Guid bookingId, string bookingNumber,
         CancellationToken cancellationToken = default)
@@ -49,6 +50,7 @@ public sealed class HoldConversionService(TicketBookingDbContext db, SessionSeat
         if (now >= booking.PaymentDeadline)
             throw new DomainRuleException(DomainError.PaymentDeadlinePassed, "The payment deadline passed during conversion.");
         await transaction.CommitAsync(cancellationToken);
+        await cache.RemoveAsync(holdId, cancellationToken);
         return booking;
     }
 }

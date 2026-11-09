@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TicketBooking.Api.Errors;
 using TicketBooking.Api.Validation;
+using TicketBooking.Application.Catalogue;
 using TicketBooking.Contracts.Catalogue;
 using TicketBooking.Domain.Catalogue;
+using TicketBooking.Infrastructure.Caching;
 using TicketBooking.Infrastructure.Persistence;
 
 namespace TicketBooking.Api.Catalogue;
@@ -112,13 +114,33 @@ public static class CatalogueEndpoints
         return session is null ? TypedResults.NotFound() : TypedResults.Ok(session);
     }
 
-    private static async Task<Results<Ok<SessionSeatMapResponse>, NotFound, ProblemHttpResult>> GetSessionSeatsAsync(Guid id, TicketBookingDbContext db, HttpContext context)
+    private static async Task<Results<Ok<SessionSeatMapResponse>, NotFound, ProblemHttpResult>> GetSessionSeatsAsync(Guid id, TicketBookingDbContext db,
+        ISeatAvailabilityCache cache, HttpContext context)
     {
         context.Response.Headers.CacheControl = "no-store";
         var ct = context.RequestAborted;
         await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead, ct);
         var session = await PublicSessions(db).SingleOrDefaultAsync(s => s.Id == id, ct);
         if (session is null) return TypedResults.NotFound();
+        var seatCount = await db.Seats.CountAsync(s => s.AuditoriumId == session.AuditoriumId, ct);
+        SeatAvailabilityCacheKey? cacheKey = null;
+        if (cache.IsUseful(seatCount))
+        {
+            // Cheap inventory metadata comes from the same database snapshot as visibility/layout checks.
+            // Every supported allocation write advances Version; a commit selects a new cache key.
+            var versions = await db.SessionSeats.AsNoTracking().Where(seat => seat.SessionId == id)
+                .Select(seat => new SeatAvailabilityVersion(seat.Id, seat.Version)).ToArrayAsync(ct);
+            if (versions.Length == seatCount)
+            {
+                cacheKey = new SeatAvailabilityCacheKey(id, session.AuditoriumId, SeatAvailabilityRevision.Create(versions));
+                var cached = await cache.GetAsync(cacheKey, ct);
+                if (cached is not null)
+                {
+                    await transaction.CommitAsync(ct);
+                    return TypedResults.Ok(cached);
+                }
+            }
+        }
         var inventory = await (from item in db.SessionSeats.AsNoTracking()
                                join seat in db.Seats on item.SeatId equals seat.Id
                                where item.SessionId == id
@@ -129,7 +151,6 @@ public static class CatalogueEndpoints
                                    Seat = new SeatMapSeatResponse(item.Id, seat.Id, seat.Row, seat.Number, (int)seat.Type,
                                        item.Price.Amount, item.Price.Currency, (int)item.Status, item.Version)
                                }).ToListAsync(ct);
-        var seatCount = await db.Seats.CountAsync(s => s.AuditoriumId == session.AuditoriumId, ct);
         if (inventory.Count != seatCount || inventory.Any(s => s.AuditoriumId != session.AuditoriumId))
         {
             var problem = new ProblemDetails { Status = 409, Title = "Conflict", Detail = "Session inventory does not match its auditorium layout." };
@@ -138,7 +159,9 @@ public static class CatalogueEndpoints
             return TypedResults.Problem(problem);
         }
         await transaction.CommitAsync(ct);
-        return TypedResults.Ok(new SessionSeatMapResponse(id, session.AuditoriumId, inventory.Select(s => s.Seat).ToArray()));
+        var response = new SessionSeatMapResponse(id, session.AuditoriumId, inventory.Select(s => s.Seat).ToArray());
+        if (cacheKey is not null) await cache.SetAsync(cacheKey, response, ct);
+        return TypedResults.Ok(response);
     }
 
     private static IQueryable<Session> PublicSessions(TicketBookingDbContext db) =>

@@ -103,7 +103,7 @@ After setup, run this single Bash command from the repository root:
 
 ```bash
 dotnet tool restore --tool-manifest dotnet-tools.json && \
-  docker compose up -d --wait postgres && \
+  docker compose up -d --wait postgres redis && \
   dotnet ef database update \
     --project src/TicketBooking.Infrastructure \
     --startup-project src/TicketBooking.Api \
@@ -112,7 +112,7 @@ dotnet tool restore --tool-manifest dotnet-tools.json && \
   dotnet run --project src/TicketBooking.Api --launch-profile https
 ```
 
-This restores the pinned EF Core tool, waits for PostgreSQL readiness, applies migrations, and starts the API at `https://localhost:7281`. Each step runs only if the previous step succeeds. Package restore/build happens through the EF and API commands. Stop the API with Ctrl+C; PostgreSQL stays running until `docker compose down`.
+This restores the pinned EF Core tool, waits for PostgreSQL and Redis readiness, applies migrations, and starts the API at `https://localhost:7281`. Each step runs only if the previous step succeeds. Package restore/build happens through the EF and API commands. Stop the API with Ctrl+C; PostgreSQL and Redis stay running until `docker compose down`.
 
 ### How migrations are applied
 
@@ -145,6 +145,21 @@ docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 ```
 
 The health check uses `pg_isready` to check whether PostgreSQL accepts connections. `--wait` waits for the service to become healthy.
+
+## Local Redis
+
+After configuring `.env` as above, start Redis and check its response:
+
+```bash
+docker compose up -d --wait redis
+docker compose exec redis redis-cli ping
+```
+
+Redis 8 is exposed only on localhost at port `6379`; override `REDIS_PORT` in `.env` if needed. The health check runs `redis-cli ping` every five seconds, with a five-second timeout, ten retries and a ten-second startup grace period. A successful manual ping returns `PONG`. Run `docker compose up -d --wait postgres redis` to start both services.
+
+The `redis_data` volume stores Redis snapshots under `/data` across container recreation using Redis default snapshot behavior, without append-only persistence. This local service has no password configured. The API caches active hold responses under `hold:{holdId}` until the original `expiresAt`. PostgreSQL remains authoritative for ownership, lifecycle and inventory; Redis failures fall back to PostgreSQL. API `/health` remains liveness-only.
+
+Configure the API Redis connection with `ConnectionStrings__Redis` or User Secrets (`ConnectionStrings:Redis`). The default is `localhost:6379`. If `REDIS_PORT` changes, configure the API separately; the host API does not load Compose `.env`. A containerized API would use host `redis` and port `6379`. See [hold caching](docs/features/reservation-booking-payment/hold-caching.md) for cache misses, TTL and invalidation.
 
 ### API connection settings
 
@@ -182,7 +197,7 @@ docker compose up -d --wait postgres
 
 The named `postgres_data` volume keeps database data across container removal and recreation. Database initialization settings apply only when the volume is empty; editing `.env` does not change credentials in an existing database.
 
-To intentionally delete all local database data and initialize again:
+To intentionally delete all local database data and Redis snapshots and initialize again:
 
 ```bash
 docker compose down --volumes
@@ -194,3 +209,11 @@ docker compose up -d --wait postgres
 Metadata/configuration tests run with `dotnet test TicketBooking.slnx`. Actual PostgreSQL migration/constraint tests also run when `TICKETBOOKING_TEST_CONNECTION_STRING` points to a dedicated test database; otherwise they are skipped. These tests apply migrations, then roll back test rows, so never target a development or production database containing real data. CI supplies a disposable PostgreSQL 17 service and this variable.
 
 The [persistence guide](docs/features/local-persistence/data-model.md) lists foreign keys and uniqueness scopes. Constraints protect relational references and inventory identity. [Session-seat concurrency](docs/features/session-seat-concurrency/FEATURE.md) now fences tracked writes/deletes and explicit allocation writes with Version checks, including Held→Held transfer. Full owner-linked hold/booking transactions and authenticated booking endpoints remain future work.
+
+Live Redis tests require `TICKETBOOKING_TEST_REDIS_CONNECTION_STRING` pointing to an isolated Redis instance; otherwise they skip. CI provides both PostgreSQL and Redis. Run `dotnet test TicketBooking.slnx` with both test connection variables set to exercise the complete suite.
+
+Public seat maps with at least 64 seats also use a five-second Redis projection cache by default. Each read validates current inventory IDs/version tokens in PostgreSQL; hold creation, cancellation, expiry, confirmation and release commits select new cache keys. Small maps and all allocation decisions bypass caching. Configure `SeatAvailabilityCache__Enabled`, `SeatAvailabilityCache__MinimumSeatCount` and `SeatAvailabilityCache__Lifetime` (one to thirty seconds). See [scope and invalidation](docs/features/venue-catalogue-model/seat-availability-caching.md); disable or tune this cache when workload measurements show low benefit.
+
+Redis expiry notifications are not required. PostgreSQL deadline/state/version checks and the polling hold-expiration worker remain authoritative during cache eviction, stale entries and Redis outages; a missing cache key never releases a seat.
+
+The API starts without connecting to Redis. For degraded local startup, omit `redis` from the Compose `--wait` step and run against PostgreSQL. Redis access is bounded by `RedisCache__OperationTimeout` (default 250 ms per cache await), `RedisCache__ConnectionTimeout` and `RedisCache__CommandTimeout` (500 ms each). These settings override timeout values in custom Redis connection strings. Timeouts fall back to PostgreSQL reads or skip post-commit cache updates; request cancellation still propagates. See [Redis timeouts](docs/features/local-persistence/redis-timeouts.md) for bounds and late-operation behavior.

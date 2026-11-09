@@ -7,6 +7,7 @@ namespace TicketBooking.Api.Reservation;
 public sealed record HoldExpiryCursor(DateTimeOffset ExpiresAt, Guid Id);
 public sealed record HoldExpiryBatchResult(int Examined, int Expired, HoldExpiryCursor? NextCursor);
 
+/// <summary>Discovers due holds from PostgreSQL; Redis TTLs and notifications never schedule or authorize release.</summary>
 public sealed class HoldExpiryBatchProcessor(IServiceScopeFactory scopes, TimeProvider clock,
     HoldExpiryOptions options, ILogger<HoldExpiryBatchProcessor> logger)
 {

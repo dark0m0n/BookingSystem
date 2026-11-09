@@ -12,3 +12,5 @@ Human operational ownership is unspecified. The customer booking application lay
 
 - **TicketBooking.Api.Development** owns explicit command dispatch, Development gating, seed graph orchestration, result IDs and a scoped host without HTTP. The command is separate from normal API startup and Identity admin provisioning.
 - **Infrastructure.Persistence/PostgreSQL** supplies the existing context, constraints, transaction/advisory lock and auditorium/event row locks; no sample-specific schema is introduced.
+
+Application owns the seat-map cache contract. Infrastructure owns Redis serialization, revision hashing, bounded options and expiry. API owns public visibility/layout checks and the database snapshot. PostgreSQL owns inventory/version truth; Redis owns disposable public projections only. See [cache authority boundaries](seat-availability-caching.md).

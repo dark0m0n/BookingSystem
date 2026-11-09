@@ -192,6 +192,22 @@
       "path": "src/TicketBooking.Infrastructure/Persistence/HoldConversionService.cs",
       "symbol": "ConvertAsync",
       "description": "Serializes owner-authorized conversion against cleanup and atomically persists booking, token transfers and Converted status."
+    },
+    {
+      "id": "hold-cache-adapter",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Caching/RedisHoldCache.cs",
+      "symbol": "RedisHoldCache",
+      "description": "Best-effort active HoldResponse caching under hold:{holdId} with fixed expiry and corruption/outage fallback."
+    },
+    {
+      "id": "hold-cache-registration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Caching/HoldCacheRegistration.cs",
+      "symbol": "AddHoldCaching",
+      "description": "Registers singleton Redis-backed IHoldCache using ConnectionStrings:Redis."
     }
   ],
   "unresolved": [

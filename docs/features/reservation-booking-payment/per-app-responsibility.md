@@ -7,4 +7,6 @@
 - **TicketBooking.Domain.Booking/Payment** own their existing domain lifecycle rules; their HTTP workflows remain absent.
 - **TicketBooking.Infrastructure** owns EF mappings/migrations, PostgreSQL storage, Identity stores, SessionSeatAllocationWriter version/status predicates, the transactional HoldExpiryReleaser, and HoldConversionService orchestration using Application ownership checks.
 
-All modules remain in the existing application and assembly dependency structure. The API hosts the hold expiry worker. No frontend, provider adapter, Redis, messaging integration, refund flow or new deployable is added.
+All modules remain in the existing application and assembly dependency structure. The API hosts the hold expiry worker. No frontend, provider adapter, messaging integration or refund flow is added. Redis is used for disposable active hold response snapshots.
+
+Application defines IHoldCache; Infrastructure owns Redis serialization, TTL and failure handling. API creation/lookup and persistence lifecycle services call that contract. Redis owns disposable cached copies only; PostgreSQL remains authoritative for ownership, deadlines, state and inventory.

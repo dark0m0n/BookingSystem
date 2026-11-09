@@ -25,3 +25,10 @@ The transition interpretation, exact equality boundaries, no-reopen failed payme
 - **Observed:** Cancellation replay still requires the original owner, even for Admin. Converted/Expired states do not become Cancelled on replay.
 - **Observed:** Service commands require a fresh scoped DbContext and the hold-first lock protocol. Status concurrency catches stale tracked saves, but callers must not blindly retry with a refreshed status or allocation version.
 - **Observed:** Legacy booking items have null claim tokens. They cannot authorize a future release without a safe reconciliation policy. No source-hold link exists for returning an existing booking on conversion replay; normal repeated conversion conflicts instead.
+
+- **Inferred-risk:** Cache invalidation can fail or race an Active fill after a terminal commit. Database-header ownership/state checks on every GET prevent later reads from trusting terminal stale data; a subsequent owner read removes it. Redis is never inventory authority.
+- **Observed provider behavior:** Redis key TTL has whole-second resolution and may expire early near the hold deadline. Misses reload PostgreSQL without extending ExpiresAt. A Redis outage adds cache timeout latency but does not undo committed lifecycle work. See [cache details](hold-caching.md).
+
+- **Observed contract:** Cache lookups do not clean up invalid entries before database commit. A failed hold-read transaction leaves application-managed cache data untouched; the next successful read repairs/removes it, or the original Redis TTL expires it. Cache fills/removals do not run when CommitAsync fails. See [commit-order coverage](hold-caching.md#database-commit-boundary).
+
+- **Observed contract:** A vanished hold key does not mean a seat is free, and a retained key does not extend a hold. During worker lag, deadline guards reject use while inventory remains Held. Redis outages or lost expiry notifications cannot block PostgreSQL polling/release; clients must use the server state rather than key existence. See [Redis independence](hold-expiry-worker.md#postgresql-authority-and-redis-independence).

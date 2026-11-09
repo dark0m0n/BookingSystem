@@ -30,3 +30,7 @@ See [persistence](../local-persistence/FEATURE.md) for local startup/migration i
 ## Related decision
 
 See the [seat ownership, price history and transition decision record](../../decisions/0001-seat-ownership-price-history-and-transitions.md) for rationale, enforcement boundaries and remaining transaction work.
+
+## Seat-map cache invalidation
+
+The [seat-availability cache](../venue-catalogue-model/seat-availability-caching.md) hashes inventory IDs/version tokens read from PostgreSQL before every eligible map lookup. Every successful HoldAsync, TransferToBookingAsync, ConfirmAsync or ReleaseAsync commit therefore selects a new cache key; tracked edits/deletes/replacements likewise change the revision. Rollbacks do not invalidate. No cache reads or network invalidation occur in allocation commands. Future booking confirmation/release workflows must still commit aggregate state and fenced seat writes together.

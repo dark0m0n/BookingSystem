@@ -45,3 +45,13 @@ Booking numbers are globally unique in the schema; payment keys are unique withi
 | BR-20 | Completed cancellation/expiry may repeat without another release or deadline change. | Owner-checked Cancelled replay returns 204; system expiry skips non-Active holds; domain matching cleanup repeats are no-ops. |
 | BR-21 | Conversion and cleanup serialize on one hold and retain allocation ownership evidence. | Hold-first locks, version-fenced Held transfers/releases, atomic booking/hold updates and separate BookingItem allocation tokens. |
 | BR-22 | Stale tracked status saves cannot overwrite the winning transition. | SeatHold.Status is an EF concurrency token; a failed update rolls back the save batch. |
+
+| Rule | Requirement | Enforcement |
+| --- | --- | --- |
+| BR-23 | Cache only unelapsed Active hold responses until their original deadline. | RedisHoldCache checks injected time/state and uses fixed absolute expiration; no sliding refresh. |
+| BR-24 | Cached data cannot authorize access, change lifecycle or undo a committed database operation. | Owner GET checks the stored header before cache access; commands use PostgreSQL; cache I/O handles Redis failures. |
+| BR-25 | Populate/remove only after successful database commits, including read-snapshot commits for cache misses and repairs. | HoldEndpoints, HoldConversionService and HoldExpiryReleaser call IHoldCache after commit; hold GET commits its RepeatableRead snapshot before fills/repairs; read-only lookups guard against stale refills. |
+
+| Rule | Requirement | Enforcement |
+| --- | --- | --- |
+| BR-26 | Redis expiry/eviction/notifications cannot change hold eligibility or seat ownership. | PostgreSQL-loaded hold state/deadlines, retained inventory versions and polling HoldExpiryBatchProcessor/HoldExpiryReleaser remain authoritative; post-commit cache failures are best-effort. |

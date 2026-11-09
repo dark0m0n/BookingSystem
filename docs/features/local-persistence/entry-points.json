@@ -12,6 +12,14 @@
       "description": "Compose service definition with local port binding, named volume, and readiness probe."
     },
     {
+      "id": "redis-service",
+      "app": "redis",
+      "kind": "service",
+      "path": "docker-compose.yml",
+      "symbol": "redis:",
+      "description": "Local Redis service with loopback port, named snapshot volume and redis-cli ping health check."
+    },
+    {
       "id": "persistence-registration",
       "app": "TicketBooking.Api",
       "kind": "service",
@@ -170,6 +178,22 @@
       "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261108003652_AddBookingItemAllocationVersion.cs",
       "symbol": "AddBookingItemAllocationVersion",
       "description": "Adds nullable booking transfer claim tokens/check constraint and captures hold-status concurrency metadata."
+    },
+    {
+      "id": "redis-timeout-policy",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Caching/RedisCacheTimeoutPolicy.cs",
+      "symbol": "ExecuteAsync",
+      "description": "Bounds asynchronous Redis waits, propagates caller cancellation and observes late provider failures."
+    },
+    {
+      "id": "redis-timeout-registration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Caching/RedisCachePolicyOptions.cs",
+      "symbol": "AddRedisCachePolicy",
+      "description": "Binds and validates singleton Redis cache timeout settings."
     }
   ],
   "unresolved": [

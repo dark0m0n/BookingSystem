@@ -8,6 +8,7 @@ using TicketBooking.Api.Development;
 using TicketBooking.Api.Errors;
 using TicketBooking.Api.Reservation;
 using TicketBooking.Api.Validation;
+using TicketBooking.Infrastructure.Caching;
 using TicketBooking.Infrastructure.Identity;
 using TicketBooking.Infrastructure.Persistence;
 
@@ -53,6 +54,8 @@ builder.Services.AddDbContext<TicketBookingDbContext>(options =>
     options.UseNpgsql(connectionString));
 builder.Services.AddScoped<SessionSeatAllocationWriter>();
 builder.Services.AddScoped<HoldConversionService>();
+builder.Services.AddHoldCaching(builder.Configuration);
+builder.Services.AddSeatAvailabilityCaching(builder.Configuration);
 builder.Services.AddHoldExpiryWorker(builder.Configuration);
 builder.Services.AddTicketBookingIdentity().AddSignInManager();
 builder.Services.AddTicketBookingAuthentication(builder.Configuration);

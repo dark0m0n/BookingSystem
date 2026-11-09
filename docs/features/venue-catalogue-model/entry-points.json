@@ -354,6 +354,22 @@
       "path": "src/TicketBooking.Api/Development/DevelopmentSampleDataSeeder.cs",
       "symbol": "SeedAsync",
       "description": "Transactional idempotent sample graph/layout/future session generation with locked roots and preserved history."
+    },
+    {
+      "id": "seat-availability-cache",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Caching/RedisSeatAvailabilityCache.cs",
+      "symbol": "RedisSeatAvailabilityCache",
+      "description": "Best-effort public map projections under revisioned Redis keys with bounded TTL."
+    },
+    {
+      "id": "seat-availability-revision",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Caching/SeatAvailabilityRevision.cs",
+      "symbol": "Create",
+      "description": "SHA-256 fingerprint of sorted inventory IDs and version tokens used for transactional logical invalidation."
     }
   ],
   "unresolved": [

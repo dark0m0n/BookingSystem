@@ -51,3 +51,7 @@ Hold use always checks injected current UTC time against the stored ExpiresAt, i
 GET remains a historical read: it may return stored Active with an elapsed expiresAt before the worker runs. That response does not authorize conversion or cancellation. Seats also remain Held until transactional cleanup commits, so a new POST selecting them receives 409 seat_not_available. The booking factory is a domain API; no booking HTTP endpoint is introduced by this check.
 
 Completed cancellation replay is a read-only acknowledgement, not a new use of an expired Active hold. Converted holds still return 409 hold_not_active and cannot be cancelled through the hold route. See [cleanup/conversion coordination](hold-cleanup-conversion.md) for race, token-transfer and idempotency rules.
+
+## Server-side cache
+
+Active unelapsed responses are cached in Redis under `hold:{holdId}` until their original expiry. GET checks the persisted header and owner before cache access and reloads item snapshots on misses. HTTP `Cache-Control: no-store` remains unchanged. Expired/terminal history comes from PostgreSQL, and lifecycle commands never trust cached state. See [TTL, invalidation and outage behavior](hold-caching.md).

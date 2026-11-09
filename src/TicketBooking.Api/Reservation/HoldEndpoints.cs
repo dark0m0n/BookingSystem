@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TicketBooking.Api.Auth;
 using TicketBooking.Api.Validation;
 using TicketBooking.Application.Identity;
+using TicketBooking.Application.Reservation;
 using TicketBooking.Contracts.Reservation;
 using TicketBooking.Domain;
 using TicketBooking.Domain.Catalogue;
@@ -26,19 +27,36 @@ public static class HoldEndpoints
     }
 
     private static async Task<IResult> GetAsync(Guid holdId, TicketBookingDbContext db,
-        ResourceOwnershipService ownership, HttpContext context)
+        ResourceOwnershipService ownership, IHoldCache cache, TimeProvider clock, HttpContext context)
     {
         context.Response.Headers.CacheControl = "no-store";
-        var hold = await db.SeatHolds.AsNoTracking().Include(value => value.Items).AsSingleQuery()
-            .SingleOrDefaultAsync(value => value.Id == holdId, context.RequestAborted);
+        var ct = context.RequestAborted;
+        await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead, ct);
+        var hold = await db.SeatHolds.AsNoTracking()
+            .SingleOrDefaultAsync(value => value.Id == holdId, ct);
         if (hold is null) return Results.NotFound();
         ownership.EnsureHoldOwner(hold);
-        return Results.Ok(ToResponse(hold));
+        // The database header is always authoritative, even if invalidation failed or raced a cache fill.
+        if (hold.Status == SeatHoldStatus.Active && hold.ExpiresAt > clock.GetUtcNow())
+        {
+            var cached = await cache.GetAsync(holdId, ct);
+            if (cached is not null && cached.ExpiresAt == hold.ExpiresAt && hold.ExpiresAt > clock.GetUtcNow())
+            {
+                await transaction.CommitAsync(ct);
+                return Results.Ok(cached);
+            }
+        }
+        var items = await db.SeatHoldItems.AsNoTracking().Where(item => item.SeatHoldId == holdId)
+            .ToListAsync(ct);
+        var response = ToResponse(hold, items);
+        await transaction.CommitAsync(ct);
+        await cache.SetAsync(response, ct);
+        return Results.Ok(response);
     }
 
     private static async Task<IResult> CancelAsync(Guid holdId, TicketBookingDbContext db,
         SessionSeatAllocationWriter writer, ICurrentUser currentUser, ResourceOwnershipService ownership,
-        TimeProvider clock, HttpContext context)
+        TimeProvider clock, IHoldCache cache, HttpContext context)
     {
         context.Response.Headers.CacheControl = "no-store";
         var ct = context.RequestAborted;
@@ -52,7 +70,12 @@ public static class HoldEndpoints
         ownership.EnsureHoldOwner(hold);
         var userId = currentUser.UserId ?? throw new AuthenticationRequiredException();
         // Authorize before replaying success. A completed cancellation must never touch inventory again.
-        if (hold.Status == SeatHoldStatus.Cancelled) return Results.NoContent();
+        if (hold.Status == SeatHoldStatus.Cancelled)
+        {
+            await transaction.CommitAsync(ct);
+            await cache.RemoveAsync(holdId, ct);
+            return Results.NoContent();
+        }
         var session = await db.Sessions.FromSqlInterpolated(
             $"SELECT * FROM \"Sessions\" WHERE \"Id\" = {hold.SessionId} FOR SHARE").AsNoTracking().SingleAsync(ct);
         hold.EnsureCanConvert(userId, clock);
@@ -72,12 +95,13 @@ public static class HoldEndpoints
         if (clock.GetUtcNow() >= hold.ExpiresAt)
             throw new DomainRuleException(DomainError.HoldExpired, "The hold expired during cancellation.");
         await transaction.CommitAsync(ct);
+        await cache.RemoveAsync(holdId, ct);
         return Results.NoContent();
     }
 
     private static async Task<IResult> CreateAsync(Guid sessionId, CreateHoldRequest request,
         TicketBookingDbContext db, SessionSeatAllocationWriter writer, ICurrentUser currentUser,
-        ResourceOwnershipService ownership, TimeProvider clock, BookingTimingPolicy timing, HttpContext context)
+        ResourceOwnershipService ownership, TimeProvider clock, BookingTimingPolicy timing, IHoldCache cache, HttpContext context)
     {
         context.Response.Headers.CacheControl = "no-store";
         var userId = currentUser.UserId is { } id && id != Guid.Empty ? id : throw new AuthenticationRequiredException();
@@ -121,12 +145,14 @@ public static class HoldEndpoints
         if (clock.GetUtcNow() >= hold.ExpiresAt)
             throw new DomainRuleException(DomainError.HoldExpired, "The hold expired during allocation.");
         await transaction.CommitAsync(ct);
-        return Results.Created($"/api/holds/{hold.Id}", ToResponse(hold));
+        var response = ToResponse(hold);
+        await cache.SetAsync(response, ct);
+        return Results.Created($"/api/holds/{hold.Id}", response);
     }
 
-    private static HoldResponse ToResponse(SeatHold hold) => new(hold.Id, hold.SessionId, hold.ExpiresAt, (int)hold.Status,
+    private static HoldResponse ToResponse(SeatHold hold, IEnumerable<SeatHoldItem>? items = null) => new(hold.Id, hold.SessionId, hold.ExpiresAt, (int)hold.Status,
             hold.TotalAmount.Amount, hold.TotalAmount.Currency,
-            hold.Items.OrderBy(item => item.SessionSeatId)
+            (items ?? hold.Items).OrderBy(item => item.SessionSeatId)
                 .Select(item => new HoldItemResponse(item.SessionSeatId, item.PriceSnapshot.Amount, item.PriceSnapshot.Currency)).ToArray());
 
     private sealed class CapturedClock(DateTimeOffset instant) : TimeProvider

@@ -70,3 +70,7 @@ All successful public handlers declare concrete typed Ok responses from TicketBo
 [Response contract HTTP tests](../../../tests/TicketBooking.IntegrationTests/AuthEndpointsTests.ResponseContracts.cs) assert exact response field sets and declared 200 DTO types for all five public routes; [pagination contract tests](../../../tests/TicketBooking.IntegrationTests/PaginationContractTests.cs) verify navigation at empty/last/out-of-range/large-count boundaries and JSON round-tripping.
 
 Input rules now run through FluentValidation via CatalogueQueryValidator before parsing. Public endpoints document 500 internal_error in addition to their existing 400/404/409 outcomes; the request/response shapes and field names are unchanged. Development OpenAPI includes application/problem+json schemas/descriptions/examples. See [validation and ProblemDetails](validation-and-problems.md).
+
+## Seat-map server cache
+
+Eligible maps may use Redis projections with a short TTL, while PostgreSQL still checks visibility, physical layout count and current inventory revision in the same RepeatableRead snapshot. Small maps bypass caching. HTTP no-store, DTO ordering/fields, ownership privacy and 404/409 semantics remain unchanged. Inventory commits select new keys, including confirmation and release; key expiry itself never releases inventory. See [scope and exact invalidation boundaries](seat-availability-caching.md).

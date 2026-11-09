@@ -27,6 +27,15 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379/tcp
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - name: Check out repository
@@ -46,4 +55,5 @@ jobs:
       - name: Run tests
         env:
           TICKETBOOKING_TEST_CONNECTION_STRING: Host=127.0.0.1;Port=${{ job.services.postgres.ports[5432] }};Database=ticketbooking_tests;Username=ticketbooking_tests;Password=local-test-only
+          TICKETBOOKING_TEST_REDIS_CONNECTION_STRING: 127.0.0.1:${{ job.services.redis.ports[6379] }},abortConnect=false
         run: dotnet test TicketBooking.slnx --configuration Release --no-build --no-restore
