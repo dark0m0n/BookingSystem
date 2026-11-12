@@ -1,6 +1,6 @@
 # Known gotchas
 
-- **Observed:** Startup settings do not automatically expire entities or release seats. Explicit methods enforce eligibility; the API now runs bounded transactional Active-hold expiry; pending-booking expiry remains future work.
+- **Observed:** Startup settings do not automatically expire entities or release seats. Explicit methods enforce eligibility; the API now runs bounded transactional Active-hold and pending-booking expiry. Polling delay does not extend payment eligibility, and seats remain allocated until release commits.
 - **Observed:** The payment window begins at booking creation. Starting another attempt or receiving a delayed outcome never extends PaymentDeadline. At equality, initiation/confirmation reject and expiry becomes valid.
 - **Observed:** A payment result can be Succeeded after the booking deadline, while booking confirmation rejects. The [late-success policy](seat-retention-and-late-payments.md) requires durable reconciliation and later idempotent compensation. Execution is deferred; no automatic correction is claimed.
 - **Observed:** Cancellation is strictly before the captured cutoff. Bookings created after that cutoff are not cancellable even if still awaiting payment. Zero lead time allows cancellation until, but not at, session start.

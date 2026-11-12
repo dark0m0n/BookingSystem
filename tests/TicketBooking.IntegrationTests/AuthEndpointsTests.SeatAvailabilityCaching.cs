@@ -104,7 +104,7 @@ public partial class AuthEndpointsTests
             if (operation is "transfer" or "confirm" or "release-booked")
             {
                 using var converted = await ConvertHold(setup.Hold.Id, setup.Owner);
-                Assert.Equal(HttpStatusCode.OK, converted.StatusCode);
+                Assert.Equal(HttpStatusCode.Created, converted.StatusCode);
             }
             if (operation != "transfer")
             {

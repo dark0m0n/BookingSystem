@@ -1,14 +1,16 @@
 # Local infrastructure, PostgreSQL persistence and constraints
 
+Pending-booking expiry is implemented by a bounded API worker and scoped retained-token release transaction. Apply IndexPendingBookingExpirations for its filtered (PaymentDeadline, Id) index; the model also records Booking.Status as a concurrency token. See [worker contract](../reservation-booking-payment/booking-expiry-worker.md).
+
 Local Redis provisioning is implemented in the working tree: [Compose](../../../docker-compose.yml) defines Redis 8, a loopback-only configurable port, a named snapshot volume and a `redis-cli ping` health check. See [README Redis startup](../../../README.md#local-redis). Active hold response caching is implemented; see [cache behavior](../reservation-booking-payment/hold-caching.md); API health remains liveness-only. Compose configuration validation passed; container startup has not been verified.
 
-Status: **partial**. Local PostgreSQL provisioning, EF mappings, migration, foreign keys, unique indexes, and database round trips are implemented. Admin setup writes are implemented; customer booking workflows, durable allocation ownership and transactional booking operations remain absent. [Row-level concurrency](../session-seat-concurrency/FEATURE.md) now fences SessionSeat changes.
+Status: **partial**. Local PostgreSQL provisioning, EF mappings, migration, foreign keys, unique indexes, and database round trips are implemented. Admin setup writes, customer hold/booking creation, retained allocation ownership and transactional hold/booking expiry are implemented; owner-only booking details/history are implemented; booking cancellation and payment confirmation remain absent. [Row-level concurrency](../session-seat-concurrency/FEATURE.md) now fences SessionSeat changes.
 
 Working tree inspected on top of `93f4f16`. Developers can use the existing Npgsql DbContext to persist eleven business entity types plus seven framework Identity types and two [refresh entities](../identity-persistence/refresh-token-rotation.md). The database rejects duplicate seat coordinates, duplicate session inventory, orphan references, repeated booking numbers, and duplicate payment identities.
 
 ## Acceptance and verification
 
-- Eleven business entity types and thirteen required foreign keys use restrictive deletion; seven Identity entities add six cascading dependent FKs, and two refresh entities add two more cascading FKs.
+- Eleven business entity types and thirteen required foreign keys plus the nullable booking source-hold reference use restrictive deletion; seven Identity entities add six cascading dependent FKs, and two refresh entities add two more cascading FKs.
 - Unique inventory keys: Seats(AuditoriumId, Row, Number) and SessionSeats(SessionId, SeatId).
 - Composite item keys preserve history across holds/bookings; booking numbers and payment keys/references have defined uniqueness scopes.
 - Money columns use numeric(18,2) and required currency strings; UTC deadline snapshots persist as timestamp with time zone.
@@ -54,8 +56,24 @@ SeatHold and SeatHoldItem mappings and table creation already exist in the check
 
 Verification: all 44 targeted PersistenceModelTests and PostgresPersistenceTests cases passed with zero skips against fresh disposable PostgreSQL 17. This includes migration application, snapshot consistency, the four hold-state round trips and existing constraint/snapshot tests. Documentation entries, code anchors and local links validated.
 
+## Booking mapping verification
+
+The follow-up EnforceUniqueBookingSourceHold migration adds nullable uuid Bookings.SourceHoldId, a unique index and restrictive hold FK. New factory-created bookings always store the source; legacy nulls are preserved without inferred backfill. The duplicate source insertion, null legacy compatibility, model/snapshot consistency and transaction/race cases passed as part of 89 focused PostgreSQL tests. The solution build, formatting and feature-bundle validation passed; only disposable test schemas/databases were migrated. See [duplicate-prevention details](../reservation-booking-payment/FEATURE.md#booking-creation-http-verification).
+
+Booking and BookingItem configurations, globally unique booking numbers and the required migrations already exist. Their verified entry points are now indexed in [entry-points.json](entry-points.json); see [backend structure](backend-structure.md#booking-configurations) and [stored fields and coverage](data-model.md#booking-mapping-verification-scope). This earlier mapping verification required no additional migration. The subsequent duplicate-prevention change adds EnforceUniqueBookingSourceHold, described in the data model.
+
+All **55 targeted PersistenceModelTests and PostgresPersistenceTests cases passed, zero failed/skipped**, against fresh disposable PostgreSQL 17. This includes migration application, model/snapshot consistency, four supported booking-state round trips with two items, global number collisions, case-sensitive lookup, restrictive parent deletion and existing historical snapshot/constraint checks. Development/deployed database state remains unverified.
+
 ## Bounded Redis access
 
 Both caches now share validated per-operation, connection and command timeouts with typed database fallback. Defaults are 250 ms per cache await and 500 ms for transport timeouts. See [configuration, cancellation and late-operation behavior](redis-timeouts.md).
 
 The [cache verification matrix](cache-testing.md) records TTL, stale-data, invalidation, commit-order and outage coverage, including live Redis stale-payload checks and a real disconnected Redis client.
+
+## Pending-booking retention verification
+
+The complete solution run passed **947 tests**, with **zero failures** and three live Redis cases skipped. PostgreSQL cases used disposable migrated storage. This includes the new exact payment-deadline boundaries, original-hold expiry independence, retry retention, session-start/non-Scheduled release behavior, terminal/confirmed preservation, retained-token/save/commit rollback, concurrent-worker fencing, stale tracked confirmation, bounded poison-row progress and hosted-worker lifecycle. The Release solution build passed with zero warnings/errors; formatting, model/snapshot consistency, feature JSON/code/link checks passed. Apply pending migrations including IndexPendingBookingExpirations through README startup; development/deployed state was not verified.
+
+IndexBookingHistoryByOwner adds the (UserId ASC, CreatedAt DESC, Id DESC) history index without rewriting data. Its metadata, migration application and model/snapshot consistency passed in the full 975-pass solution run (three live Redis skips). See [owner read contract](../reservation-booking-payment/booking-http-contract.md). Only disposable PostgreSQL storage was migrated.
+
+IndexAdminBookingHistory adds the global (CreatedAt, Id) booking-history index without column/data changes. Migration application and snapshot/index metadata passed in the 76-case focused run; the additional all-admin-route authorization case also passed. Build, formatting and feature documentation validation passed. Only disposable PostgreSQL was migrated. See [admin list contract](../reservation-booking-payment/booking-http-contract.md#authorized-admin-booking-list).

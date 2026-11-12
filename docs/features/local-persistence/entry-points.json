@@ -172,6 +172,22 @@
       "description": "Adds the filtered deadline/ID index for bounded Active-hold expiry scans without changing data."
     },
     {
+      "id": "booking-mapping",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Configurations/BookingConfiguration.cs",
+      "symbol": "public sealed class BookingConfiguration",
+      "description": "Maps booking totals, captured timestamps, globally unique case-sensitive numbers and the private item collection."
+    },
+    {
+      "id": "booking-item-mapping",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Configurations/BookingItemConfiguration.cs",
+      "symbol": "public sealed class BookingItemConfiguration",
+      "description": "Maps composite booking/inventory identity, restrictive inventory reference, independent price snapshot and nullable positive transfer token."
+    },
+    {
       "id": "booking-allocation-token-migration",
       "app": "TicketBooking.Infrastructure",
       "kind": "service",
@@ -194,11 +210,67 @@
       "path": "src/TicketBooking.Infrastructure/Caching/RedisCachePolicyOptions.cs",
       "symbol": "AddRedisCachePolicy",
       "description": "Binds and validates singleton Redis cache timeout settings."
+    },
+    {
+      "id": "booking-source-hold-migration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261112160049_EnforceUniqueBookingSourceHold.cs",
+      "symbol": "EnforceUniqueBookingSourceHold",
+      "description": "Adds nullable legacy-compatible source hold identity, a unique index and restrictive hold foreign key."
+    },
+    {
+      "id": "booking-expiry-worker",
+      "app": "TicketBooking.Api",
+      "kind": "job",
+      "path": "src/TicketBooking.Api/Booking/BookingExpiryWorker.cs",
+      "symbol": "ExecuteAsync",
+      "description": "Runs bounded pending-booking expiry immediately and polls with injected time and cancellable delays."
+    },
+    {
+      "id": "booking-expiry-batch",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Booking/BookingExpiryBatchProcessor.cs",
+      "symbol": "ProcessBatchAsync",
+      "description": "Scans due pending bookings by stored deadline/ID and creates fresh per-candidate scopes with cursor progress past failures."
+    },
+    {
+      "id": "booking-expiry-release",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/BookingExpiryReleaser.cs",
+      "symbol": "ExpireAsync",
+      "description": "Locks/rechecks due pending bookings and atomically expires/releases retained allocation versions."
+    },
+    {
+      "id": "booking-expiry-index-migration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261112161139_IndexPendingBookingExpirations.cs",
+      "symbol": "IndexPendingBookingExpirations",
+      "description": "Adds the filtered pending-payment deadline/ID scan index and records booking-status concurrency metadata."
+    },
+    {
+      "id": "booking-owner-history-migration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261112162841_IndexBookingHistoryByOwner.cs",
+      "symbol": "IndexBookingHistoryByOwner",
+      "description": "Adds the owner/newest-first booking-history index without rewriting rows."
+    },
+    {
+      "id": "admin-booking-history-migration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261112164423_IndexAdminBookingHistory.cs",
+      "symbol": "IndexAdminBookingHistory",
+      "description": "Adds the creation-time/ID index for global newest-first admin booking history without rewriting rows."
     }
   ],
   "unresolved": [
     "Business UserId foreign keys/backfill and account-deletion compatibility remain deferred despite the new Identity model.",
-    "Storage constraints alone do not enforce cross-row auditorium/session consistency. Hold HTTP creation/cancellation and system expiry now coordinate ownership, validation and fenced writes; booking/payment transactions remain absent.",
+    "Storage constraints alone do not enforce cross-row auditorium/session consistency. Hold HTTP creation/cancellation and system expiry now coordinate ownership, validation and fenced writes; booking conversion/expiry now use retained-token transactions; payment confirmation remains absent.",
     "Development/deployed database migration state has not been verified; only an isolated test database was migrated."
   ]
 }

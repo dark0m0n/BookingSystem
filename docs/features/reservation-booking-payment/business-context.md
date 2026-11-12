@@ -16,7 +16,7 @@ The supplied plan requires temporary holds, owner-only conversion before expirat
 
 Identifiers and required text are validated; zero-price Money values and derived zero-amount payments are representable, without defining a free-checkout workflow. The payment key is preserved verbatim, not normalized.
 
-Booking numbers are globally unique in the schema; payment keys are unique within each booking and nonnull provider references are globally unique. These storage constraints do not implement idempotent request replay. Customer hold creation now authenticates the caller, loads authoritative inventory, and persists hold-item allocation versions atomically with exclusive seat claims. Unimplemented requirements include booking-sale completion, pending-booking release and public booking/payment workflows, atomic payment/booking/seat confirmation, refunds and reliable messaging. Entity methods alone cannot enforce these across concurrent requests. The [decision record](../../decisions/0001-seat-ownership-price-history-and-transitions.md) separates schema guarantees, domain rules and pending application transactions.
+Booking numbers are globally unique in the schema; payment keys are unique within each booking and nonnull provider references are globally unique. These storage constraints do not implement idempotent request replay. Customer hold creation now authenticates the caller, loads authoritative inventory, and persists hold-item allocation versions atomically with exclusive seat claims. Unimplemented requirements include booking-sale completion, booking cancellation and public payment workflows, atomic payment/booking/seat confirmation, refunds and reliable messaging. Entity methods alone cannot enforce these across concurrent requests. The [decision record](../../decisions/0001-seat-ownership-price-history-and-transitions.md) separates schema guarantees, domain rules and pending application transactions.
 
 | Rule | Requirement | Enforcement |
 | --- | --- | --- |
@@ -55,3 +55,20 @@ Booking numbers are globally unique in the schema; payment keys are unique withi
 | Rule | Requirement | Enforcement |
 | --- | --- | --- |
 | BR-26 | Redis expiry/eviction/notifications cannot change hold eligibility or seat ownership. | PostgreSQL-loaded hold state/deadlines, retained inventory versions and polling HoldExpiryBatchProcessor/HoldExpiryReleaser remain authoritative; post-commit cache failures are best-effort. |
+| BR-27 | Customer booking creation consumes only the caller's Active unexpired hold, with server-generated identity/number and historical prices. | BookingEndpoints validates HoldId and invokes HoldConversionService; ownership, hold state, token transfers and booking persistence are checked/committed atomically. Repeats conflict. See [HTTP contract](booking-http-contract.md). |
+
+| Rule | Requirement | Enforcement |
+| --- | --- | --- |
+| BR-28 | One known source hold may produce at most one persisted booking, including concurrent requests or writers bypassing conversion. | Booking.CreateFromHold captures SourceHoldId; IX_Bookings_SourceHoldId is unique. Normal conversion holds the row lock through commit; source-index conflicts map to hold_not_active and roll back transfers. Historical null sources remain unknown. |
+
+| Rule | Requirement | Enforcement |
+| --- | --- | --- |
+| BR-29 | Pending bookings retain seats until the captured payment deadline; retries and original hold expiry cannot alter it. | BookingTimingPolicy/Booking factory capture the cutoff; BookingExpiryWorker selects only due PendingPayment rows and BookingExpiryReleaser atomically expires/releases retained versions. No release before the cutoff. |
+
+| Rule | Requirement | Enforcement |
+| --- | --- | --- |
+| BR-30 | Booking details/history are owner-only, including for Admin; filter before paging and preserve stored history. | BookingEndpoints.GetAsync calls EnsureBookingOwner before item loading; GetMineAsync filters by ICurrentUser.UserId before count/page and checks each loaded owner. RepeatableRead gives consistent headers/items and count/pages; no read side effects. |
+
+| Rule | Requirement | Enforcement |
+| --- | --- | --- |
+| BR-31 | Only the Admin policy may list booking summaries across owners; customer ownership rules remain cumulative on customer routes. | AdminBookingEndpoints is a separate explicit management read with bounded pagination, all-owner count/page snapshot and a distinct DTO containing stored UserId. No role/identity query field authorizes it. |

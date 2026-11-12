@@ -1,5 +1,7 @@
 # Data model
 
+Pending-booking cleanup queries stored PaymentDeadline and PendingPayment status through the filtered (PaymentDeadline, Id) index from IndexPendingBookingExpirations. Booking.Status is an EF concurrency token. Expiry preserves all captured timestamps/prices and historical allocation tokens; only status and inventory version/status change.
+
 | Value | Type | Meaning |
 | --- | --- | --- |
 | BookingTimingPolicy.HoldDuration | TimeSpan, get-only | Positive maximum hold lifetime. |

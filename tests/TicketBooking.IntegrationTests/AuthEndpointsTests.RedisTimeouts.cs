@@ -67,7 +67,7 @@ public partial class AuthEndpointsTests
             else if (operation == "convert")
             {
                 using var converted = await ConvertHold(setup.Hold.Id, setup.Owner).WaitAsync(TimeSpan.FromSeconds(5));
-                Assert.Equal(HttpStatusCode.OK, converted.StatusCode);
+                Assert.Equal(HttpStatusCode.Created, converted.StatusCode);
             }
             else
             {

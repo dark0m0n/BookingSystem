@@ -307,6 +307,7 @@ public partial class AuthEndpointsTests
 
     private (HttpMethod Method, string Path, object? Body)[] AdministrationRequests(Guid id) =>
         [
+            (HttpMethod.Get, "/api/admin/bookings", null),
             (HttpMethod.Post, "/api/admin/venues", new CreateVenueRequest("Venue", "Address")),
             (HttpMethod.Get, "/api/admin/venues", null),
             (HttpMethod.Get, $"/api/admin/venues/{id}", null),

@@ -16,6 +16,7 @@ public sealed class Booking
         Guid id,
         Guid userId,
         Guid sessionId,
+        Guid sourceHoldId,
         string number,
         IReadOnlyList<BookingItem> items,
         DateTimeOffset createdAt,
@@ -25,6 +26,7 @@ public sealed class Booking
         Id = DomainGuard.Id(id, nameof(id));
         UserId = userId;
         SessionId = sessionId;
+        SourceHoldId = DomainGuard.Id(sourceHoldId, nameof(sourceHoldId));
         Number = DomainGuard.Text(number, nameof(number));
         this.items = items.ToList();
         TotalAmount = Money.Sum(items.Select(item => item.PriceSnapshot));
@@ -37,6 +39,8 @@ public sealed class Booking
     public Guid Id { get; private set; }
     public Guid UserId { get; private set; }
     public Guid SessionId { get; private set; }
+    // Null only for historical bookings created before source-hold correlation was stored.
+    public Guid? SourceHoldId { get; private set; }
     public string Number { get; private set; } = null!;
     public BookingStatus Status { get; private set; } = BookingStatus.PendingPayment;
     public Money TotalAmount { get; private set; } = null!;
@@ -70,7 +74,7 @@ public sealed class Booking
             .ToArray();
 
         // Application must coordinate persisting the booking and converting the hold atomically.
-        return new Booking(id, userId, hold.SessionId, number, Array.AsReadOnly(items), now, sessionStartsAt, timingPolicy);
+        return new Booking(id, userId, hold.SessionId, hold.Id, number, Array.AsReadOnly(items), now, sessionStartsAt, timingPolicy);
     }
 
     /// <summary>

@@ -1,5 +1,7 @@
 using System.Text.Json;
 using TicketBooking.Contracts;
+using TicketBooking.Contracts.Administration;
+using TicketBooking.Contracts.Booking;
 using TicketBooking.Contracts.Catalogue;
 
 namespace TicketBooking.IntegrationTests;
@@ -22,8 +24,12 @@ public class PaginationContractTests
     {
         var events = new EventListResponse([], page, pageSize, totalCount);
         var sessions = new EventSessionListResponse([], page, pageSize, totalCount);
+        var bookings = new BookingListResponse([], page, pageSize, totalCount);
+        var adminBookings = new AdminBookingListResponse([], page, pageSize, totalCount);
         AssertNavigation(events, totalPages, previous, next);
         AssertNavigation(sessions, totalPages, previous, next);
+        AssertNavigation(bookings, totalPages, previous, next);
+        AssertNavigation(adminBookings, totalPages, previous, next);
     }
 
     [Fact]

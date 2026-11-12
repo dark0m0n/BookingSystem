@@ -139,8 +139,8 @@ public partial class AuthEndpointsTests
                 var seat = await db.SessionSeats.FirstAsync();
                 var timing = new BookingTimingPolicy(TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(15), TimeSpan.FromHours(1));
                 var hold = new SeatHold(Guid.NewGuid(), original.Id, Guid.NewGuid(), original.StartsAt, [seat], clock, timing);
-                if (reason == "history") db.SeatHolds.Add(hold);
-                else db.Bookings.Add(TicketBooking.Domain.Booking.Booking.CreateFromHold(Guid.NewGuid(), hold, hold.UserId,
+                db.SeatHolds.Add(hold);
+                if (reason == "booking") db.Bookings.Add(TicketBooking.Domain.Booking.Booking.CreateFromHold(Guid.NewGuid(), hold, hold.UserId,
                     "BK-SESSION-TEST", clock, original.StartsAt, timing));
                 await db.SaveChangesAsync();
             }

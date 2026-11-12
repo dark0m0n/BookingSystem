@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using TicketBooking.Api.Administration;
 using TicketBooking.Api.Auth;
+using TicketBooking.Api.Booking;
 using TicketBooking.Api.Catalogue;
 using TicketBooking.Api.Configuration;
 using TicketBooking.Api.Development;
@@ -44,6 +45,7 @@ builder.Services.AddHealthChecks();
 builder.Services.AddApiErrors();
 builder.Services.AddCatalogueValidation();
 builder.Services.AddHoldValidation();
+builder.Services.AddBookingValidation();
 
 var connectionString =
     builder.Configuration.GetConnectionString("DefaultConnection")
@@ -57,6 +59,7 @@ builder.Services.AddScoped<HoldConversionService>();
 builder.Services.AddHoldCaching(builder.Configuration);
 builder.Services.AddSeatAvailabilityCaching(builder.Configuration);
 builder.Services.AddHoldExpiryWorker(builder.Configuration);
+builder.Services.AddBookingExpiryWorker(builder.Configuration);
 builder.Services.AddTicketBookingIdentity().AddSignInManager();
 builder.Services.AddTicketBookingAuthentication(builder.Configuration);
 
@@ -76,8 +79,10 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapAuthEndpoints();
 app.MapAdminCatalogueEndpoints();
+app.MapAdminBookingEndpoints();
 app.MapCatalogueEndpoints();
 app.MapHoldEndpoints();
+app.MapBookingEndpoints();
 
 // Liveness only: database readiness checks can be added separately.
 app.MapHealthChecks("/health");

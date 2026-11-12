@@ -1,6 +1,6 @@
 # Resource ownership
 
-Status: **implemented** for reusable Domain/Application checks and the HTTP caller adapter; **implemented** for customer hold creation/GET/DELETE wiring; **planned** for booking/payment endpoints and refund-specific traversal. Working tree inspected. The customer hold routes now apply these checks; booking/payment/refund routes remain absent.
+Status: **implemented** for reusable Domain/Application checks and the HTTP caller adapter; **implemented** for customer hold creation/GET/DELETE wiring; **implemented** for booking creation/details/history; **planned** for payment endpoints and refund-specific traversal. Working tree inspected. Customer hold and booking routes now apply these checks; payment/refund routes remain absent.
 
 ## Authority and owner resolution
 
@@ -11,7 +11,7 @@ Status: **implemented** for reusable Domain/Application checks and the HTTP call
 | Payment | Persisted Payment.BookingId → matching Booking.Id → Booking.UserId | EnsurePaymentOwner(payment, booking) checks the link as well as the owner. |
 | Refund (planned) | Owning booking, resolved through the refund's persisted booking/payment reference when its model exists | Validate every parent link, then reuse EnsureBookingOwner or EnsurePaymentOwner. No Refund entity/check adapter exists yet. |
 
-Never authorize from a submitted UserId, owner ID, booking number, provider reference or idempotency key. Load resources/parents from persistence using route IDs. Query/body ownership fields do not establish identity. List queries must filter to the caller's stored ownership before pagination; this helper does not filter queries or load data.
+Never authorize from a submitted UserId, owner ID, booking number, provider reference or idempotency key. Load resources/parents from persistence using route IDs. Query/body ownership fields do not establish identity. Customer list queries must filter to the caller's stored ownership before pagination; this helper does not filter queries or load data.
 
 [ICurrentUser](../../../src/TicketBooking.Application/Identity/ICurrentUser.cs) exposes only the caller ID. [HttpCurrentUser](../../../src/TicketBooking.Api/Auth/HttpCurrentUser.cs) accepts exactly one authenticated identity with exactly one nonempty GUID `sub` in canonical D format. The JWT issuer emits this format and inbound claim mapping is disabled. Missing HTTP context, anonymous/ambiguous identities and missing/malformed/empty/duplicate subjects provide no caller ID; NameIdentifier is not a fallback. Only authentication middleware may establish the principal.
 
@@ -27,7 +27,7 @@ ownership.EnsurePaymentOwner(payment, booking);
 
 EnsureOwner(ownerId) is the extension point for future resources with an already verified server-resolved owner; never pass a request's asserted owner. Hold/booking transitions also reuse [ResourceOwnership.EnsureOwner](../../../src/TicketBooking.Domain/Identity/ResourceOwnership.cs) as a domain safeguard. Domain still accepts explicit actor IDs; HTTP callers must obtain them from ICurrentUser. Payment provider-result methods and expiration jobs remain system operations, not customer authorization entry points.
 
-Role permission and resource ownership are cumulative. Admin satisfies Customer role eligibility but has **no implicit ownership bypass**. A future management operation needs its own explicitly authorized workflow; do not pass the owner's ID as the Admin's identity. Ownership success does not override cancellation deadlines, payment deadlines, hold expiry or state transitions.
+Role permission and resource ownership are cumulative on customer routes. Admin satisfies Customer role eligibility but has **no implicit ownership bypass**. GET /api/admin/bookings is now an explicitly authorized Admin-policy management workflow listing all booking summaries and stored owner IDs; it does not alter customer-route checks or grant admin mutations/details. Never pass the owner's ID as the Admin's identity. Ownership success does not override cancellation deadlines, payment deadlines, hold expiry or state transitions.
 
 ## Failures and transactions
 

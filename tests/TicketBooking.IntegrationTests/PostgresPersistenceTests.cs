@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
 using TicketBooking.Domain;
+using TicketBooking.Domain.Booking;
 using TicketBooking.Domain.Catalogue;
 using TicketBooking.Domain.Reservation;
 using TicketBooking.Domain.Venue;
@@ -123,6 +124,64 @@ public class PostgresPersistenceTests : IAsyncLifetime
         Assert.Equal(inventory.Inventory.Price, stored.Items.Single(item => item.SessionSeatId == inventory.Inventory.Id).PriceSnapshot);
         Assert.Equal(secondInventory.Price, stored.Items.Single(item => item.SessionSeatId == secondInventory.Id).PriceSnapshot);
         Assert.Throws<NotSupportedException>(() => ((IList<SeatHoldItem>)stored.Items).Clear());
+    }
+
+    [PostgresTheory]
+    [InlineData(BookingStatus.PendingPayment)]
+    [InlineData(BookingStatus.Confirmed)]
+    [InlineData(BookingStatus.Cancelled)]
+    [InlineData(BookingStatus.Expired)]
+    public async Task BookingRoundTrip_PreservesOwnershipNumberStatusDeadlinesAndItemSnapshots(BookingStatus status)
+    {
+        var inventory = await SeedInventory();
+        var secondSeat = new Seat(Guid.NewGuid(), inventory.Auditorium.Id, "A", 2);
+        var secondInventory = new SessionSeat(Guid.NewGuid(), inventory.Session.Id, secondSeat.Id, new Money(7.25m, "UAH"));
+        context.AddRange(secondSeat, secondInventory);
+        var hold = new SeatHold(Guid.NewGuid(), inventory.Session.Id, Guid.NewGuid(), inventory.Session.StartsAt,
+            [inventory.Inventory, secondInventory], TimeProviderAtNow(), Timing);
+        var number = new string('B', 128);
+        var booking = CreateBooking(hold, number);
+        booking.Items.Single(item => item.SessionSeatId == inventory.Inventory.Id).CaptureAllocationVersion(7);
+        switch (status)
+        {
+            case BookingStatus.Confirmed:
+                booking.Confirm(TimeProviderAtNow());
+                break;
+            case BookingStatus.Cancelled:
+                booking.Cancel(booking.UserId, TimeProviderAtNow());
+                break;
+            case BookingStatus.Expired:
+                booking.Expire(new FixedTimeProvider(booking.PaymentDeadline));
+                break;
+        }
+
+        context.Bookings.Add(booking);
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var stored = await context.Bookings.Include(value => value.Items).SingleAsync(value => value.Id == booking.Id);
+
+        Assert.Equal(booking.UserId, stored.UserId);
+        Assert.Equal(booking.SessionId, stored.SessionId);
+        Assert.Equal(hold.Id, stored.SourceHoldId);
+        Assert.Equal(number, stored.Number);
+        Assert.Equal(status, stored.Status);
+        Assert.Equal(booking.CreatedAt, stored.CreatedAt);
+        Assert.Equal(booking.SessionStartsAt, stored.SessionStartsAt);
+        Assert.Equal(booking.PaymentDeadline, stored.PaymentDeadline);
+        Assert.Equal(booking.CancellationDeadline, stored.CancellationDeadline);
+        Assert.All(new[] { stored.CreatedAt, stored.SessionStartsAt, stored.PaymentDeadline, stored.CancellationDeadline },
+            instant => Assert.Equal(TimeSpan.Zero, instant.Offset));
+        Assert.Equal(new Money(19.75m, "UAH"), stored.TotalAmount);
+        Assert.Equal(2, stored.Items.Count);
+        Assert.All(stored.Items, item => Assert.Equal(booking.Id, item.BookingId));
+        var firstItem = stored.Items.Single(item => item.SessionSeatId == inventory.Inventory.Id);
+        var secondItem = stored.Items.Single(item => item.SessionSeatId == secondInventory.Id);
+        Assert.Equal(new Money(12.50m, "UAH"), firstItem.PriceSnapshot);
+        Assert.Equal(new Money(7.25m, "UAH"), secondItem.PriceSnapshot);
+        Assert.Equal(7, firstItem.AllocationVersion);
+        Assert.Null(secondItem.AllocationVersion);
+        Assert.Throws<NotSupportedException>(() => ((IList<BookingItem>)stored.Items).Clear());
     }
 
     [PostgresFact]
@@ -289,15 +348,85 @@ public class PostgresPersistenceTests : IAsyncLifetime
     }
 
     [PostgresFact]
-    public async Task BookingNumber_IsUnique()
+    public async Task SourceHold_CannotCreateTwoPersistedBookingsWithDifferentNumbers()
     {
         var inventory = await SeedInventory();
         var hold = CreateHold(inventory);
+        context.Bookings.Add(CreateBooking(hold, "BK-FIRST"));
+        await context.SaveChangesAsync();
+        context.Bookings.Add(CreateBooking(hold, "BK-SECOND"));
+
+        await AssertConstraint(PostgresErrorCodes.UniqueViolation, "IX_Bookings_SourceHoldId");
+        context.ChangeTracker.Clear();
+        Assert.Equal(hold.Id, (await context.Bookings.SingleAsync()).SourceHoldId);
+    }
+
+    [PostgresFact]
+    public async Task LegacyBookings_WithoutSourceHoldCanCoexist()
+    {
+        var inventory = await SeedInventory();
+        var hold = CreateHold(inventory);
+        var first = CreateBooking(hold, "BK-LEGACY-1");
+        var second = CreateBooking(hold, "BK-LEGACY-2");
+        context.Bookings.AddRange(first, second);
+        // Simulate historical rows for which the old schema never recorded a source hold.
+        context.Entry(first).Property(value => value.SourceHoldId).CurrentValue = null;
+        context.Entry(second).Property(value => value.SourceHoldId).CurrentValue = null;
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        Assert.Equal(2, await context.Bookings.CountAsync(value => value.SourceHoldId == null));
+    }
+
+    [PostgresFact]
+    public async Task BookingNumber_IsUniqueAcrossUsersAndSessions()
+    {
+        var inventory = await SeedInventory();
+        var hold = CreateHold(inventory);
+        var otherInventory = await SeedInventory();
+        var otherHold = CreateHold(otherInventory);
+        Assert.NotEqual(hold.UserId, otherHold.UserId);
+        Assert.NotEqual(hold.SessionId, otherHold.SessionId);
         context.Bookings.Add(CreateBooking(hold));
         await context.SaveChangesAsync();
-        context.Bookings.Add(CreateBooking(hold));
+        context.Bookings.Add(CreateBooking(otherHold));
 
         await AssertConstraint(PostgresErrorCodes.UniqueViolation, "IX_Bookings_Number");
+    }
+
+    [PostgresFact]
+    public async Task BookingNumbers_WithDifferentCase_CanCoexist()
+    {
+        var inventory = await SeedInventory();
+        var hold = CreateHold(inventory);
+        var first = CreateBooking(hold, "BK-CASE");
+        var second = CreateBooking(CreateHold(inventory), "bk-case");
+        context.Bookings.AddRange(first, second);
+
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        Assert.Equal(first.Id, (await context.Bookings.SingleAsync(value => value.Number == "BK-CASE")).Id);
+        Assert.Equal(second.Id, (await context.Bookings.SingleAsync(value => value.Number == "bk-case")).Id);
+    }
+
+    [PostgresTheory]
+    [InlineData("Booking")]
+    [InlineData("SessionSeat")]
+    public async Task BookingItem_RestrictsDeletionOfItsParents(string parent)
+    {
+        var inventory = await SeedInventory();
+        var booking = CreateBooking(CreateHold(inventory));
+        context.Bookings.Add(booking);
+        await context.SaveChangesAsync();
+
+        var exception = await Assert.ThrowsAsync<PostgresException>(() => parent == "Booking"
+            ? context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM \"Bookings\" WHERE \"Id\" = {booking.Id}")
+            : context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM \"SessionSeats\" WHERE \"Id\" = {inventory.Inventory.Id}"));
+
+        Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, exception.SqlState);
+        Assert.Equal(parent == "Booking" ? "FK_BookingItems_Bookings_BookingId" : "FK_BookingItems_SessionSeats_SessionSeatId",
+            exception.ConstraintName);
     }
 
     [PostgresFact]
@@ -318,7 +447,7 @@ public class PostgresPersistenceTests : IAsyncLifetime
         var inventory = await SeedInventory();
         var hold = CreateHold(inventory);
         var first = CreateBooking(hold, "BK-1");
-        var second = CreateBooking(hold, "BK-2");
+        var second = CreateBooking(CreateHold(inventory), "BK-2");
         context.AddRange(first, second,
             PaymentEntity.CreateForBooking(Guid.NewGuid(), first, "same-key", TimeProviderAtNow()),
             PaymentEntity.CreateForBooking(Guid.NewGuid(), second, "same-key", TimeProviderAtNow()));
@@ -405,8 +534,11 @@ public class PostgresPersistenceTests : IAsyncLifetime
     private static SeatHold CreateHold(InventoryGraph inventory) => new(Guid.NewGuid(), inventory.Session.Id, Guid.NewGuid(),
         inventory.Session.StartsAt, [inventory.Inventory], TimeProviderAtNow(), Timing);
 
-    private static BookingEntity CreateBooking(SeatHold hold, string number = "BK-TEST") => BookingEntity.CreateFromHold(
-        Guid.NewGuid(), hold, hold.UserId, number, TimeProviderAtNow(), Now.AddHours(2), Timing);
+    private BookingEntity CreateBooking(SeatHold hold, string number = "BK-TEST")
+    {
+        if (context.Entry(hold).State == EntityState.Detached) context.SeatHolds.Add(hold);
+        return BookingEntity.CreateFromHold(Guid.NewGuid(), hold, hold.UserId, number, TimeProviderAtNow(), Now.AddHours(2), Timing);
+    }
 
     private static TimeProvider TimeProviderAtNow() => new FixedTimeProvider();
 

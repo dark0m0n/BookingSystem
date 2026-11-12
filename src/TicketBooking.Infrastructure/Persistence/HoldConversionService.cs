@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using TicketBooking.Application.Identity;
 using TicketBooking.Application.Reservation;
 using TicketBooking.Domain;
@@ -36,14 +37,28 @@ public sealed class HoldConversionService(TicketBookingDbContext db, SessionSeat
             .ToListAsync(cancellationToken);
         if (inventory.Count != items.Length) throw new SeatAllocationConflictException();
         // Factory rechecks expiry with fresh time after every lock has been acquired.
-        var booking = BookingEntity.CreateFromHold(bookingId, hold, userId, bookingNumber, clock, session.StartsAt, timing);
+        var createdAt = clock.GetUtcNow().ToUniversalTime();
+        hold.EnsureCanConvert(userId, new CapturedClock(createdAt));
+        // PostgreSQL timestamps have microsecond precision. Capture the same instant in the
+        // creation response and persisted history, as the hold creation endpoint already does.
+        var storedCreatedAt = new DateTimeOffset(createdAt.Ticks - createdAt.Ticks % TimeSpan.TicksPerMicrosecond, TimeSpan.Zero);
+        var booking = BookingEntity.CreateFromHold(bookingId, hold, userId, bookingNumber,
+            new CapturedClock(storedCreatedAt), session.StartsAt, timing);
         var bookingItems = booking.Items.ToDictionary(item => item.SessionSeatId);
         foreach (var item in items)
             bookingItems[item.SessionSeatId].CaptureAllocationVersion(await writer.TransferToBookingAsync(
                 item.SessionSeatId, item.AllocationVersion!.Value, cancellationToken));
         hold.Convert(userId, clock);
         db.Bookings.Add(booking);
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception) when (exception.InnerException is PostgresException
+        { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "IX_Bookings_SourceHoldId" })
+        {
+            throw new DomainRuleException(DomainError.HoldNotActive, "The hold already has a booking.");
+        }
         var now = clock.GetUtcNow();
         if (now >= hold.ExpiresAt)
             throw new DomainRuleException(DomainError.HoldExpired, "The hold expired during conversion.");
@@ -52,5 +67,10 @@ public sealed class HoldConversionService(TicketBookingDbContext db, SessionSeat
         await transaction.CommitAsync(cancellationToken);
         await cache.RemoveAsync(holdId, cancellationToken);
         return booking;
+    }
+
+    private sealed class CapturedClock(DateTimeOffset instant) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => instant;
     }
 }

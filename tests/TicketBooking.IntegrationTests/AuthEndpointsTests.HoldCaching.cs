@@ -71,7 +71,7 @@ public partial class AuthEndpointsTests
             using var result = operation == "cancel"
                 ? await AdminRequest(HttpMethod.Delete, $"/api/holds/{setup.Hold.Id}", setup.Owner)
                 : await ConvertHold(setup.Hold.Id, setup.Owner);
-            Assert.Equal(operation == "cancel" ? HttpStatusCode.NoContent : HttpStatusCode.OK, result.StatusCode);
+            Assert.Equal(operation == "cancel" ? HttpStatusCode.NoContent : HttpStatusCode.Created, result.StatusCode);
         }
         Assert.False(holdCacheStorage.Entries.ContainsKey(key));
 
@@ -131,7 +131,7 @@ public partial class AuthEndpointsTests
             using var result = operation == "cancel"
                 ? await AdminRequest(HttpMethod.Delete, $"/api/holds/{setup.Hold.Id}", setup.Owner)
                 : await ConvertHold(setup.Hold.Id, setup.Owner);
-            Assert.Equal(operation == "cancel" ? HttpStatusCode.NoContent : HttpStatusCode.OK, result.StatusCode);
+            Assert.Equal(operation == "cancel" ? HttpStatusCode.NoContent : HttpStatusCode.Created, result.StatusCode);
         }
         Assert.Same(original, holdCacheStorage.Entries[key]);
         var reads = holdCacheStorage.Reads;

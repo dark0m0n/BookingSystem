@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using TicketBooking.Domain;
 using TicketBooking.Domain.Catalogue;
@@ -23,7 +24,7 @@ public class PersistenceModelTests
     }
 
     [Fact]
-    public void Model_ContainsAllEntitiesWithRequiredRestrictiveForeignKeys()
+    public void Model_ContainsAllEntitiesWithRestrictiveForeignKeys()
     {
         using var context = CreateContext();
         var model = context.Model;
@@ -32,10 +33,10 @@ public class PersistenceModelTests
             .Where(entity => entity.ClrType.Assembly == typeof(SessionSeat).Assembly).ToArray();
         Assert.Equal(11, domainEntities.Length);
         var foreignKeys = domainEntities.SelectMany(entity => entity.GetForeignKeys()).ToArray();
-        Assert.Equal(13, foreignKeys.Length);
+        Assert.Equal(14, foreignKeys.Length);
         Assert.All(foreignKeys, key =>
         {
-            Assert.True(key.IsRequired);
+            Assert.Equal(key.Properties[0].Name != nameof(BookingEntity.SourceHoldId), key.IsRequired);
             Assert.Equal(DeleteBehavior.Restrict, key.DeleteBehavior);
         });
     }
@@ -51,6 +52,7 @@ public class PersistenceModelTests
     [InlineData(typeof(SeatHoldItem), "SeatHoldId", typeof(SeatHold))]
     [InlineData(typeof(SeatHoldItem), "SessionSeatId", typeof(SessionSeat))]
     [InlineData(typeof(BookingEntity), "SessionId", typeof(Session))]
+    [InlineData(typeof(BookingEntity), "SourceHoldId", typeof(SeatHold))]
     [InlineData(typeof(BookingItem), "BookingId", typeof(BookingEntity))]
     [InlineData(typeof(BookingItem), "SessionSeatId", typeof(SessionSeat))]
     [InlineData(typeof(PaymentEntity), "BookingId", typeof(BookingEntity))]
@@ -72,6 +74,7 @@ public class PersistenceModelTests
         AssertUnique(model, typeof(Seat), "AuditoriumId", "Row", "Number");
         AssertUnique(model, typeof(SessionSeat), "SessionId", "SeatId");
         AssertUnique(model, typeof(BookingEntity), "Number");
+        AssertUnique(model, typeof(BookingEntity), "SourceHoldId");
         AssertUnique(model, typeof(PaymentEntity), "BookingId", "IdempotencyKey");
         AssertUnique(model, typeof(PaymentEntity), "ProviderReference");
         Assert.Equal("\"ProviderReference\" IS NOT NULL", model.FindEntityType(typeof(PaymentEntity))!
@@ -114,6 +117,38 @@ public class PersistenceModelTests
 
         Assert.True(version.IsConcurrencyToken);
         Assert.Equal(ValueGenerated.Never, version.ValueGenerated);
+    }
+
+    [Fact]
+    public void AdminBookingHistoryIndex_SupportsGlobalCreationTimeAndIdOrdering()
+    {
+        using var context = CreateContext();
+        var index = Assert.Single(context.Model.FindEntityType(typeof(BookingEntity))!.GetIndexes(), value =>
+            value.Properties.Select(property => property.Name).SequenceEqual(["CreatedAt", "Id"]));
+        Assert.False(index.IsUnique);
+    }
+
+    [Fact]
+    public void BookingHistoryIndex_FiltersByOwnerAndOrdersNewestFirst()
+    {
+        using var context = CreateContext();
+        var model = context.GetService<Microsoft.EntityFrameworkCore.Metadata.IDesignTimeModel>().Model;
+        var index = Assert.Single(model.FindEntityType(typeof(BookingEntity))!.GetIndexes(), value =>
+            value.Properties.Select(property => property.Name).SequenceEqual(["UserId", "CreatedAt", "Id"]));
+        Assert.Equal(new[] { false, true, true }, index.IsDescending);
+        Assert.False(index.IsUnique);
+    }
+
+    [Fact]
+    public void BookingExpiry_IndexesPendingDeadlinesAndChecksOriginalStatus()
+    {
+        using var context = CreateContext();
+        var entity = context.Model.FindEntityType(typeof(BookingEntity))!;
+        Assert.True(entity.FindProperty(nameof(BookingEntity.Status))!.IsConcurrencyToken);
+        var index = Assert.Single(entity.GetIndexes(), value =>
+            value.Properties.Select(property => property.Name).SequenceEqual(["PaymentDeadline", "Id"]));
+        Assert.Equal("\"Status\" = 0", index.GetFilter());
+        Assert.False(index.IsUnique);
     }
 
     [Fact]

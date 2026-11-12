@@ -351,14 +351,22 @@ public partial class AuthEndpointsTests
         public bool Enabled { get; set; }
         public bool FailCancellation { get; set; }
         public bool FailConversion { get; set; }
+        public bool FailBookingExpiry { get; set; }
         public Guid? FailingExpiryId { get; set; }
         public Action? OnHoldSaving { get; set; }
         public Action? OnCancellationSaving { get; set; }
         public Action? OnExpirySaving { get; set; }
         public Action? OnConversionSaving { get; set; }
+        public Action? OnBookingExpirySaving { get; set; }
         public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData,
             InterceptionResult<int> result, CancellationToken cancellationToken = default)
         {
+            if (eventData.Context!.ChangeTracker.Entries<TicketBooking.Domain.Booking.Booking>().Any(entry =>
+                entry.State == EntityState.Modified && entry.Entity.Status == TicketBooking.Domain.Booking.BookingStatus.Expired))
+            {
+                if (FailBookingExpiry) throw new InvalidOperationException("Injected booking expiry persistence failure.");
+                OnBookingExpirySaving?.Invoke();
+            }
             if (eventData.Context!.ChangeTracker.Entries<SeatHold>().Any(entry => entry.State == EntityState.Added))
             {
                 if (Enabled) throw new InvalidOperationException("Injected hold persistence failure.");

@@ -1,5 +1,13 @@
 # Data model and constraints
 
+IndexAdminBookingHistory adds nonunique IX_Bookings_CreatedAt_Id on (CreatedAt, Id), supporting global newest-first admin pages independently of the owner-prefixed history index. It changes no columns/history and Down drops only the index.
+
+IndexBookingHistoryByOwner adds IX_Bookings_UserId_CreatedAt_Id on (UserId ASC, CreatedAt DESC, Id DESC), supporting owner-filtered history before offset pagination. It rewrites no booking data and adds no columns. Down drops only this index.
+
+IndexPendingBookingExpirations adds nonunique IX_Bookings_PaymentDeadline_Id on (PaymentDeadline, Id), filtered to Status = 0. Booking.Status is an application-only EF concurrency token; its existing integer column is unchanged. Captured deadlines/prices and legacy allocation tokens are not rewritten. Down drops the index.
+
+EnforceUniqueBookingSourceHold adds nullable uuid Bookings.SourceHoldId, unique IX_Bookings_SourceHoldId and FK_Bookings_SeatHolds_SourceHoldId with Restrict deletion. Legacy rows retain null; all new domain factory calls capture the hold ID. PostgreSQL permits multiple unknown/null sources and rejects duplicate known sources regardless of booking number or status. Down removes the FK/index/column without deleting bookings. The earlier mapping-verification notes below describe the pre-source-link schema; apply this additive migration through README startup.
+
 Source: [configurations](../../../src/TicketBooking.Infrastructure/Persistence/Configurations), [snapshot](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/TicketBookingDbContextModelSnapshot.cs), and [schema migration](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261105143133_AddDomainForeignKeysAndUniqueConstraints.cs). Migration application/round trips were verified only in a disposable PostgreSQL 17 database; development/deployment state is Not verified.
 
 ## Business tables and foreign keys
@@ -16,13 +24,13 @@ All Id and reference columns are nonnull uuid unless noted. Every business entit
 | SessionSeats | PK Id; SessionId → Sessions.Id; SeatId → Seats.Id | Price: numeric(18,2); Currency: varchar(3); Status; Version: bigint. |
 | SeatHolds | PK Id; SessionId → Sessions.Id | UserId: uuid reference without Identity FK; ExpiresAt: timestamptz; Status; TotalAmount/Currency. |
 | SeatHoldItems | PK (SeatHoldId, SessionSeatId); both columns FK to SeatHolds/SessionSeats | PriceSnapshot/Currency. |
-| Bookings | PK Id; SessionId → Sessions.Id | UserId without Identity FK; Number: varchar(128); Status; CreatedAt/SessionStartsAt/PaymentDeadline/CancellationDeadline: timestamptz; TotalAmount/Currency. |
+| Bookings | PK Id; SessionId → Sessions.Id; nullable SourceHoldId → SeatHolds.Id | UserId without Identity FK; Number: varchar(128); Status; CreatedAt/SessionStartsAt/PaymentDeadline/CancellationDeadline: timestamptz; TotalAmount/Currency. |
 | BookingItems | PK (BookingId, SessionSeatId); both columns FK to Bookings/SessionSeats | PriceSnapshot/Currency. |
 | Payments | PK Id; BookingId → Bookings.Id | Amount/Currency; Status; IdempotencyKey: varchar(256); ProviderReference: nullable varchar(256). |
 
 All monetary pairs have required numeric(18,2) amount and varchar(3) currency columns. Domain Money validates supported currency, nonnegative amount, and scale; the database mapping does not add those domain checks as SQL CHECK constraints. Direct SQL fractional inputs can be coerced by numeric scale, so do not bypass server Money validation.
 
-All thirteen business FKs use ON DELETE RESTRICT. Parent rows cannot be removed while referenced; application code must explicitly manage deletion/retention rather than relying on cascades.
+All fourteen business FKs use ON DELETE RESTRICT. Parent rows cannot be removed while referenced; application code must explicitly manage deletion/retention rather than relying on cascades.
 
 ## Uniqueness scopes
 
@@ -32,6 +40,7 @@ All thirteen business FKs use ON DELETE RESTRICT. Parent rows cannot be removed 
 | IX_SessionSeats_SessionId_SeatId | SessionId, SeatId | One inventory row per session/physical-seat pair; a seat may appear in different sessions. |
 | PK_SeatHoldItems / PK_BookingItems | Parent ID, SessionSeatId | No duplicate item within one parent; historical parents may reference the same inventory row. |
 | IX_Bookings_Number | Number | Globally unique booking number. |
+| IX_Bookings_SourceHoldId | SourceHoldId | At most one booking per known source hold; legacy nulls may repeat. |
 | IX_Payments_BookingId_IdempotencyKey | BookingId, IdempotencyKey | Same key cannot create two attempts for one booking; other bookings may reuse the key. |
 | IX_Payments_ProviderReference | ProviderReference, WHERE nonnull | One payment per known provider operation; pending null references may repeat. |
 
@@ -45,7 +54,7 @@ The shared context now also stores seven framework Identity entities: users, rol
 
 ## Refresh credentials
 
-The [refresh migration](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261105165909_AddRefreshTokenRotation.cs) adds RefreshSessions (GUID key, required cascading UserId, security-stamp hash, UTC CreatedAt/ExpiresAt/RevokedAt) and RefreshTokens (GUID key, cascading SessionId, unique TokenHash, UTC CreatedAt/ConsumedAt). A filtered unique SessionId index permits one unconsumed generation; consumed history remains for replay detection. No raw credential is stored. The context now has twenty entities and twenty-one FKs: thirteen business Restrict, eight Identity/refresh Cascade. See the [Identity data model](../identity-persistence/data-model.md) for exact columns, expiry precision and constraints.
+The [refresh migration](../../../src/TicketBooking.Infrastructure/Persistence/Migrations/20261105165909_AddRefreshTokenRotation.cs) adds RefreshSessions (GUID key, required cascading UserId, security-stamp hash, UTC CreatedAt/ExpiresAt/RevokedAt) and RefreshTokens (GUID key, cascading SessionId, unique TokenHash, UTC CreatedAt/ConsumedAt). A filtered unique SessionId index permits one unconsumed generation; consumed history remains for replay detection. No raw credential is stored. The context now has twenty entities and twenty-two FKs: fourteen business Restrict, eight Identity/refresh Cascade. See the [Identity data model](../identity-persistence/data-model.md) for exact columns, expiry precision and constraints.
 
 ## Built-in role data
 
@@ -58,6 +67,14 @@ The six-entity PostgreSQL round-trip test reloads Venue, Auditorium, Seat, Event
 ## Hold mapping verification scope
 
 The hold round-trip test covers Active, Converted, Cancelled and Expired states; hold/session/user identifiers; the original UTC expiry; a 19.75 UAH total from 12.50 and 7.25 UAH items; each item's hold/inventory identifiers and price; and the read-only collection after materialization. Transitions use the domain APIs and a deterministic clock. Existing tests cover restrictive foreign keys, duplicate item keys, independent historical snapshots and migration/model consistency. This work retains the existing schema and intentionally introduces no duplicate or empty migration.
+
+## Booking mapping verification scope
+
+Bookings persist Id/UserId/SessionId, required Number (varchar(128), C collation), integer Status, numeric(18,2) TotalAmount/Currency and four timestamp-with-time-zone snapshots: CreatedAt, SessionStartsAt, PaymentDeadline and CancellationDeadline. IX_Bookings_Number is globally unique across users and sessions; case variants are distinct. BookingItems use (BookingId, SessionSeatId) as the primary key, independent PriceSnapshot/Currency columns, and nullable positive bigint AllocationVersion. Parent deletion is restrictive; identical inventory IDs may appear under different historical bookings.
+
+The focused round-trip test covers PendingPayment, Confirmed, Cancelled and Expired with two prices totaling 19.75 UAH, a 128-character number, all ownership/deadline fields, UTC offsets, both captured and null allocation versions, and a read-only materialized collection. Separate PostgreSQL cases exercise cross-user/session number collisions, allowed case variants and both item-parent deletion restrictions. Existing snapshot-isolation and composite-key tests remain applicable.
+
+The existing AddDomainForeignKeysAndUniqueConstraints and AddBookingItemAllocationVersion migrations supply this schema. No model change or new migration is introduced by this verification; development/deployed migration state remains unverified.
 
 ## Customer hold allocation versions
 

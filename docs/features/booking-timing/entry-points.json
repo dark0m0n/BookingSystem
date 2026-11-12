@@ -74,11 +74,43 @@
       "path": "src/TicketBooking.Domain/Payment/Payment.cs",
       "symbol": "public static Payment CreateForBooking(",
       "description": "Derives the amount and checks the booking completion deadline using the clock."
+    },
+    {
+      "id": "booking-expiry-worker",
+      "app": "TicketBooking.Api",
+      "kind": "job",
+      "path": "src/TicketBooking.Api/Booking/BookingExpiryWorker.cs",
+      "symbol": "ExecuteAsync",
+      "description": "Runs bounded pending-booking expiry immediately and polls with injected time and cancellable delays."
+    },
+    {
+      "id": "booking-expiry-batch",
+      "app": "TicketBooking.Api",
+      "kind": "service",
+      "path": "src/TicketBooking.Api/Booking/BookingExpiryBatchProcessor.cs",
+      "symbol": "ProcessBatchAsync",
+      "description": "Scans due pending bookings by stored deadline/ID and creates fresh per-candidate scopes with cursor progress past failures."
+    },
+    {
+      "id": "booking-expiry-release",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/BookingExpiryReleaser.cs",
+      "symbol": "ExpireAsync",
+      "description": "Locks/rechecks due pending bookings and atomically expires/releases retained allocation versions."
+    },
+    {
+      "id": "booking-expiry-index-migration",
+      "app": "TicketBooking.Infrastructure",
+      "kind": "service",
+      "path": "src/TicketBooking.Infrastructure/Persistence/Migrations/20261112161139_IndexPendingBookingExpirations.cs",
+      "symbol": "IndexPendingBookingExpirations",
+      "description": "Adds the filtered pending-payment deadline/ID scan index and records booking-status concurrency metadata."
     }
   ],
   "unresolved": [
-    "No HTTP workflows, expiration workers, or late-payment compensation are implemented.",
-    "Session rescheduling and migration of existing deadlines need explicit future policy.",
-    "Decided post-conversion retention and late-result policy still needs allocation ownership/transfer, atomic expiry/release, and durable reconciliation/compensation; no executable entries exist for those workflows."
+    "Payment/provider HTTP workflows, late-payment reconciliation and compensation remain unimplemented.",
+    "Migration/recalculation of existing captured deadlines requires an explicit policy; startup settings never rewrite them.",
+    "Allocation transfer and pending-booking expiry/release are implemented; successful-response replay lookup, confirming-payment links and durable provider compensation remain absent."
   ]
 }

@@ -143,8 +143,8 @@ public partial class AuthEndpointsTests
         {
             await using var transaction = await db.Database.BeginTransactionAsync();
             await new SessionSeatAllocationWriter(db).HoldAsync(seat.Id, seat.Version);
+            db.SeatHolds.Add(hold);
             if (booking) db.Bookings.Add(pendingBooking!);
-            else db.SeatHolds.Add(hold);
             await db.SaveChangesAsync();
             await transaction.CommitAsync();
         });
@@ -198,6 +198,7 @@ public partial class AuthEndpointsTests
         var hold = new SeatHold(Guid.NewGuid(), session.Id, Guid.NewGuid(), session.StartsAt, [seat], clock, timing);
         if (booking)
         {
+            db.SeatHolds.Add(hold);
             var saved = Booking.CreateFromHold(Guid.NewGuid(), hold, hold.UserId, "BK-PROTECTED", clock, session.StartsAt, timing);
             db.Bookings.Add(saved);
             // Historical-state fixtures include Refunded, whose domain workflow is still deferred.

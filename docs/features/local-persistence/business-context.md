@@ -9,9 +9,9 @@ Developers need repeatable local persistence, and the database must reject dupli
 | BR-03 | Preserve data across ordinary container replacement. | Named postgres_data volume; README lifecycle instructions. |
 | BR-04 | Require API connection configuration. | Program.cs DefaultConnection guard and UseNpgsql registration. |
 | BR-05 | One seat coordinate per auditorium; one inventory row per session/physical-seat pair. | SeatConfiguration and SessionSeatConfiguration unique indexes. |
-| BR-06 | Business parent references must exist; referenced business history is not cascade-deleted. | Thirteen required FKs with Restrict delete behavior. |
+| BR-06 | Business parent references must exist; referenced business history is not cascade-deleted. | Thirteen required FKs plus the optional legacy-compatible booking SourceHoldId FK use Restrict delete behavior. |
 | BR-07 | Each hold/booking contains a session seat once, but historical parents may reuse it. | Composite item primary keys; no global unique item SessionSeatId. |
-| BR-08 | Booking numbers are unique. Payment idempotency is scoped to (BookingId, IdempotencyKey). | Unique indexes; keys are exact/case-sensitive. |
+| BR-08 | Booking numbers are unique; one known source hold may create only one booking. Payment idempotency is scoped to (BookingId, IdempotencyKey). | Unique Number and SourceHoldId indexes; unknown legacy SourceHoldId nulls may repeat. Text keys are exact/case-sensitive. |
 | BR-09 | A nonnull provider reference identifies one payment for the current single provider. | Filtered unique ProviderReference index; multiple nulls allowed. |
 
 Seat Row values are exact, case-sensitive labels; no trimming/case folding is introduced. Identity now has account tables, but business UserId references still have no FK; existing identities require a backfill/compatibility decision. Identity dependent rows use framework cascade deletion. Constraints do not implement authorization, session/auditorium consistency, globally unique active holds, or double-sale protection; those need further model/transaction work.

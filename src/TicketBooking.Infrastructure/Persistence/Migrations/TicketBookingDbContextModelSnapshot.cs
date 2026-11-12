@@ -179,7 +179,11 @@ namespace TicketBooking.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("SessionStartsAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("SourceHoldId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Status")
+                        .IsConcurrencyToken()
                         .HasColumnType("integer");
 
                     b.Property<Guid>("UserId")
@@ -207,6 +211,17 @@ namespace TicketBooking.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.HasIndex("SessionId");
+
+                    b.HasIndex("SourceHoldId")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedAt", "Id");
+
+                    b.HasIndex("PaymentDeadline", "Id")
+                        .HasFilter("\"Status\" = 0");
+
+                    b.HasIndex("UserId", "CreatedAt", "Id")
+                        .IsDescending(false, true, true);
 
                     b.ToTable("Bookings", (string)null);
                 });
@@ -742,6 +757,11 @@ namespace TicketBooking.Infrastructure.Persistence.Migrations
                         .HasForeignKey("SessionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("TicketBooking.Domain.Reservation.SeatHold", null)
+                        .WithMany()
+                        .HasForeignKey("SourceHoldId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("TicketBooking.Domain.Booking.BookingItem", b =>

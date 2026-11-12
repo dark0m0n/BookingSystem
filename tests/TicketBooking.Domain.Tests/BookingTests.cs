@@ -17,6 +17,7 @@ public class BookingTests
         Assert.Equal(id, booking.Id);
         Assert.Equal(hold.UserId, booking.UserId);
         Assert.Equal(hold.SessionId, booking.SessionId);
+        Assert.Equal(hold.Id, booking.SourceHoldId);
         Assert.Equal("BK-001", booking.Number);
         Assert.Equal(LifecycleTestData.Now, booking.CreatedAt);
         Assert.Equal(BookingStatus.PendingPayment, booking.Status);
@@ -34,10 +35,12 @@ public class BookingTests
     {
         var hold = LifecycleTestData.Hold();
 
-        Assert.Throws<DomainRuleException>(() =>
+        var wrongOwner = Assert.Throws<DomainRuleException>(() =>
             BookingEntity.CreateFromHold(Guid.NewGuid(), hold, Guid.NewGuid(), "BK-001", LifecycleTestData.Clock, LifecycleTestData.SessionStartsAt, LifecycleTestData.TimingPolicy));
-        Assert.Throws<DomainRuleException>(() =>
+        Assert.Equal(DomainError.ResourceNotOwned, wrongOwner.Error);
+        var expired = Assert.Throws<DomainRuleException>(() =>
             BookingEntity.CreateFromHold(Guid.NewGuid(), hold, hold.UserId, "BK-001", LifecycleTestData.At(hold.ExpiresAt), LifecycleTestData.SessionStartsAt, LifecycleTestData.TimingPolicy));
+        Assert.Equal(DomainError.HoldExpired, expired.Error);
         Assert.Equal(SeatHoldStatus.Active, hold.Status);
     }
 
@@ -61,8 +64,10 @@ public class BookingTests
             hold.Expire(LifecycleTestData.At(hold.ExpiresAt));
         }
 
-        Assert.Throws<DomainRuleException>(() =>
+        var failure = Assert.Throws<DomainRuleException>(() =>
             BookingEntity.CreateFromHold(Guid.NewGuid(), hold, hold.UserId, "BK-001", LifecycleTestData.Clock, LifecycleTestData.SessionStartsAt, LifecycleTestData.TimingPolicy));
+        Assert.Equal(status == SeatHoldStatus.Expired ? DomainError.HoldExpired : DomainError.HoldNotActive, failure.Error);
+        Assert.Equal(status, hold.Status);
     }
 
     [Fact]

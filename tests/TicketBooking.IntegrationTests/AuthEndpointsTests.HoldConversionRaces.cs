@@ -29,7 +29,7 @@ public partial class AuthEndpointsTests
         }
         finally { firstHoldClaim.Continue.TrySetResult(); }
         using var converted = await converting.WaitAsync(TimeSpan.FromSeconds(20));
-        Assert.Equal(HttpStatusCode.OK, converted.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, converted.StatusCode);
         using var cancelled = await cancelling!.WaitAsync(TimeSpan.FromSeconds(20));
         await AssertProblem(cancelled, 409, "hold_not_active");
         clock.Set(setup.Hold.ExpiresAt.AddMinutes(1));
@@ -150,14 +150,27 @@ public partial class AuthEndpointsTests
     public async Task HoldCleanup_ConcurrentConversionsCreateOnlyOneBooking()
     {
         var setup = await OwnedHold();
-        var responses = await Task.WhenAll(ConvertHold(setup.Hold.Id, setup.Owner), ConvertHold(setup.Hold.Id, setup.Owner));
+        firstHoldClaim.Enabled = true;
+        var first = ConvertHold(setup.Hold.Id, setup.Owner);
+        Task<HttpResponseMessage>? second = null;
         try
         {
-            Assert.Single(responses, response => response.StatusCode == HttpStatusCode.OK);
+            await firstHoldClaim.Reached.Task.WaitAsync(TimeSpan.FromSeconds(20));
+            second = ConvertHold(setup.Hold.Id, setup.Owner);
+            await firstHoldClaim.SecondHoldTransitionStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.False(second.IsCompleted);
+        }
+        finally { firstHoldClaim.Continue.TrySetResult(); }
+        var responses = await Task.WhenAll(first, second!).WaitAsync(TimeSpan.FromSeconds(20));
+        try
+        {
+            Assert.Single(responses, response => response.StatusCode == HttpStatusCode.Created);
             await AssertProblem(Assert.Single(responses, response => response.StatusCode == HttpStatusCode.Conflict), 409, "hold_not_active");
             await using var scope = app.Services.CreateAsyncScope();
             var db = scope.ServiceProvider.GetRequiredService<TicketBookingDbContext>();
             Assert.Equal(1, await db.Bookings.CountAsync());
+            Assert.Equal(setup.Hold.Id, (await db.Bookings.SingleAsync()).SourceHoldId);
+            Assert.Equal(SeatHoldStatus.Converted, (await db.SeatHolds.SingleAsync()).Status);
             Assert.Equal(2, await db.BookingItems.CountAsync());
             Assert.All(await db.SessionSeats.ToArrayAsync(), seat => Assert.Equal(2, seat.Version));
         }
@@ -227,6 +240,10 @@ public partial class AuthEndpointsTests
         using var response = await ConvertHold(missing ? Guid.NewGuid() : setup.Hold.Id, setup.Admin);
         await AssertProblem(response, missing ? 404 : 403, missing ? "not_found" : "resource_not_owned");
         await AssertOriginalHoldStillAllocated(setup.Hold);
+        await using var scope = app.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<TicketBookingDbContext>();
+        Assert.Empty(await db.Bookings.ToArrayAsync());
+        Assert.Empty(await db.BookingItems.ToArrayAsync());
     }
 
     [PostgresTheory]
@@ -236,7 +253,7 @@ public partial class AuthEndpointsTests
     {
         var setup = await OwnedHold();
         using var conversion = await ConvertHold(setup.Hold.Id, setup.Owner);
-        Assert.Equal(HttpStatusCode.OK, conversion.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, conversion.StatusCode);
         await using var scope = app.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<TicketBookingDbContext>();
         var error = await Assert.ThrowsAsync<PostgresException>(() => db.Database.ExecuteSqlInterpolatedAsync(
@@ -273,9 +290,15 @@ public partial class AuthEndpointsTests
         else
         {
             using var response = await ConvertHold(setup.Hold.Id, setup.Owner);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         }
-        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => staleDb.SaveChangesAsync());
+        var failure = await Assert.ThrowsAnyAsync<DbUpdateException>(() => staleDb.SaveChangesAsync());
+        if (failure is not DbUpdateConcurrencyException)
+        {
+            var postgres = Assert.IsType<PostgresException>(failure.InnerException);
+            Assert.Equal(PostgresErrorCodes.UniqueViolation, postgres.SqlState);
+            Assert.Equal("IX_Bookings_SourceHoldId", postgres.ConstraintName);
+        }
         staleDb.ChangeTracker.Clear();
         var expected = winner == "cancelled" ? SeatHoldStatus.Cancelled :
             winner == "expired" ? SeatHoldStatus.Expired : SeatHoldStatus.Converted;
@@ -290,7 +313,7 @@ public partial class AuthEndpointsTests
     }
 
     private Task<HttpResponseMessage> ConvertHold(Guid holdId, string token) =>
-        AdminRequest(HttpMethod.Post, $"/test/holds/{holdId}/convert", token);
+        AdminRequest(HttpMethod.Post, "/api/bookings", token, new TicketBooking.Contracts.Booking.CreateBookingRequest(holdId));
 
     private async Task AssertExpiredExactlyOnce(Guid holdId)
     {

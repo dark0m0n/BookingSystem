@@ -135,7 +135,7 @@ public partial class AuthEndpointsTests
         }
         finally { conversionCommit.Continue.TrySetResult(); }
         using var response = await converting.WaitAsync(TimeSpan.FromSeconds(20));
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var afterExpiry = await ExpiryProcessor().ProcessBatchAsync();
         Assert.Equal(0, afterExpiry.Examined);
         Assert.Equal(0, afterExpiry.Expired);
